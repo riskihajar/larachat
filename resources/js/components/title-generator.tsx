@@ -1,5 +1,4 @@
 import { useEventStream } from '@laravel/stream-react';
-import { useState, useEffect } from 'react';
 
 interface TitleGeneratorProps {
     chatId: number;
@@ -10,12 +9,12 @@ interface TitleGeneratorProps {
 export default function TitleGenerator({ chatId, onTitleUpdate, onComplete }: TitleGeneratorProps) {
     // Use the useEventStream configuration
     const { message } = useEventStream(`/chat/${chatId}/title-stream`, {
-        eventName: "title-update",
-        endSignal: "</stream>",
+        eventName: 'title-update',
+        endSignal: '</stream>',
         onMessage: (event) => {
             try {
                 const parsed = JSON.parse(event.data);
-                
+
                 if (parsed.title) {
                     onTitleUpdate(parsed.title, false);
                 }

@@ -3,12 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Chat;
+use App\Services\LLM\LLMProviderFactory;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
+use Illuminate\Http\StreamedEvent;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
-use OpenAI\Laravel\Facades\OpenAI;
-use Illuminate\Http\StreamedEvent;
 
 class ChatController extends Controller
 {
@@ -20,6 +20,7 @@ class ChatController extends Controller
         if (Auth::check()) {
             $chat = Auth::user()->chats()->create([
                 'title' => 'Untitled',
+                'provider' => config('llm.default'),
             ]);
 
             return redirect()->route('chat.show', $chat);
@@ -28,6 +29,7 @@ class ChatController extends Controller
         // For unauthenticated users, show the blank chat page
         return Inertia::render('chat', [
             'chat' => null,
+            'availableProviders' => LLMProviderFactory::getAvailableProviders(),
         ]);
     }
 
@@ -39,6 +41,7 @@ class ChatController extends Controller
 
         return Inertia::render('chat', [
             'chat' => $chat,
+            'availableProviders' => LLMProviderFactory::getAvailableProviders(),
         ]);
     }
 
@@ -47,6 +50,7 @@ class ChatController extends Controller
         $request->validate([
             'title' => 'nullable|string|max:255',
             'firstMessage' => 'nullable|string',
+            'provider' => 'nullable|string|in:openai,bedrock',
         ]);
 
         $title = $request->title;
@@ -58,6 +62,7 @@ class ChatController extends Controller
 
         $chat = Auth::user()->chats()->create([
             'title' => $title,
+            'provider' => $request->provider ?? config('llm.default'),
         ]);
 
         // If firstMessage provided, save it and trigger streaming via URL parameter
@@ -115,7 +120,19 @@ class ChatController extends Controller
             $this->authorize('view', $chat);
         }
 
-        return response()->stream(function () use ($request, $chat) {
+        // Determine which provider to use
+        $providerName = $request->input('provider') ?? ($chat?->provider ?? config('llm.default'));
+        $provider = LLMProviderFactory::make($providerName);
+
+        return response()->stream(function () use ($request, $chat, $provider) {
+            // Disable ALL output buffering layers
+            while (ob_get_level()) {
+                ob_end_clean();
+            }
+
+            // Set no timeout for streaming
+            set_time_limit(0);
+
             $messages = $request->input('messages', []);
 
             if (empty($messages)) {
@@ -135,45 +152,31 @@ class ChatController extends Controller
                 }
             }
 
-            // Prepare messages for OpenAI
-            $openAIMessages = collect($messages)
-                ->map(fn ($message) => [
-                    'role' => $message['type'] === 'prompt' ? 'user' : 'assistant',
-                    'content' => $message['content'],
-                ])
-                ->toArray();
-
-            // Stream response from OpenAI
+            // Stream response using provider
             $fullResponse = '';
 
-            if (app()->environment('testing') || ! config('openai.api_key')) {
-                // Mock response for testing or when API key is not set
-                $fullResponse = 'This is a test response.';
-                echo $fullResponse;
-                ob_flush();
-                flush();
-            } else {
-                try {
-                    $stream = OpenAI::chat()->createStreamed([
-                        'model' => 'gpt-4.1-nano',
-                        'messages' => $openAIMessages,
-                    ]);
+            try {
+                foreach ($provider->stream($messages) as $chunk) {
+                    $fullResponse .= $chunk;
 
-                    foreach ($stream as $response) {
-                        $chunk = $response->choices[0]->delta->content;
-                        if ($chunk !== null) {
-                            $fullResponse .= $chunk;
-                            echo $chunk;
-                            ob_flush();
-                            flush();
-                        }
-                    }
-                } catch (\Exception $e) {
-                    $fullResponse = 'Error: Unable to generate response.';
-                    echo $fullResponse;
-                    ob_flush();
-                    flush();
+                    // Send chunk immediately
+                    echo $chunk;
+
+                    // Aggressive flushing
+                    @ob_flush();
+                    @flush();
                 }
+            } catch (\Exception $e) {
+                \Log::error('LLM streaming error', [
+                    'provider' => $provider->getName(),
+                    'error' => $e->getMessage(),
+                ]);
+                $errorMessage = 'Error: Unable to generate response.';
+                $fullResponse .= $errorMessage;
+                echo $errorMessage;
+
+                @ob_flush();
+                @flush();
             }
 
             // Save the AI response to database if authenticated
@@ -225,6 +228,7 @@ class ChatController extends Controller
                     event: 'title-update',
                     data: json_encode(['title' => $chat->title])
                 );
+
                 return;
             }
 
@@ -259,47 +263,26 @@ class ChatController extends Controller
         // Get the first message
         $firstMessage = $chat->messages()->where('type', 'prompt')->first();
 
-        if (!$firstMessage) {
+        if (! $firstMessage) {
             return;
         }
 
         try {
-            if (app()->environment('testing') || ! config('openai.api_key')) {
-                // Mock response for testing
-                $generatedTitle = 'Chat about: ' . substr($firstMessage->content, 0, 30);
-            } else {
-                $response = OpenAI::chat()->create([
-                    'model' => 'gpt-4.1-nano',
-                    'messages' => [
-                        [
-                            'role' => 'system',
-                            'content' => 'Generate a concise, descriptive title (max 50 characters) for a chat that starts with the following message. Respond with only the title, no quotes or extra formatting.'
-                        ],
-                        [
-                            'role' => 'user',
-                            'content' => $firstMessage->content
-                        ]
-                    ],
-                    'max_tokens' => 20,
-                    'temperature' => 0.7,
-                ]);
-
-                $generatedTitle = trim($response->choices[0]->message->content);
-
-                // Ensure title length
-                if (strlen($generatedTitle) > 50) {
-                    $generatedTitle = substr($generatedTitle, 0, 47) . '...';
-                }
-            }
+            // Use the chat's provider to generate title
+            $provider = LLMProviderFactory::make($chat->provider);
+            $generatedTitle = $provider->generateTitle($firstMessage->content);
 
             // Update the chat title
             $chat->update(['title' => $generatedTitle]);
 
-            \Log::info('Generated title for chat', ['chat_id' => $chat->id, 'title' => $generatedTitle]);
-
+            \Log::info('Generated title for chat', [
+                'chat_id' => $chat->id,
+                'title' => $generatedTitle,
+                'provider' => $chat->provider,
+            ]);
         } catch (\Exception $e) {
             // Fallback title on error
-            $fallbackTitle = substr($firstMessage->content, 0, 47) . '...';
+            $fallbackTitle = substr($firstMessage->content, 0, 47).'...';
             $chat->update(['title' => $fallbackTitle]);
             \Log::error('Error generating title, using fallback', ['error' => $e->getMessage()]);
         }

@@ -1,11 +1,12 @@
 import Conversation from '@/components/conversation';
-import TitleGenerator from '@/components/title-generator';
+import ProviderSwitcher from '@/components/provider-switcher';
 import SidebarTitleUpdater from '@/components/sidebar-title-updater';
+import TitleGenerator from '@/components/title-generator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
-import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { useStream } from '@laravel/stream-react';
 import { Info } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
@@ -19,6 +20,7 @@ type Message = {
 type ChatType = {
     id: number;
     title: string;
+    provider: string;
     messages: Message[];
     created_at: string;
     updated_at: string;
@@ -33,23 +35,48 @@ type PageProps = {
         };
     };
     chat?: ChatType;
+    availableProviders: Record<string, string>;
     flash?: {
         stream?: boolean;
     };
 };
 
-function ChatWithStream({ chat, auth, flash }: { chat: ChatType | undefined; auth: PageProps['auth']; flash: PageProps['flash'] }) {
+function ChatWithStream({
+    chat,
+    auth,
+    flash,
+    availableProviders,
+}: {
+    chat: ChatType | undefined;
+    auth: PageProps['auth'];
+    flash: PageProps['flash'];
+    availableProviders: Record<string, string>;
+}) {
     const [messages, setMessages] = useState<Message[]>(chat?.messages || []);
     const [currentTitle, setCurrentTitle] = useState<string>(chat?.title || 'Untitled');
     const [shouldGenerateTitle, setShouldGenerateTitle] = useState<boolean>(false);
     const [isTitleStreaming, setIsTitleStreaming] = useState<boolean>(false);
     const [shouldUpdateSidebar, setShouldUpdateSidebar] = useState<boolean>(false);
+    const [selectedProvider, setSelectedProvider] = useState<string>(chat?.provider || Object.keys(availableProviders)[0]);
     const inputRef = useRef<HTMLInputElement>(null);
 
     const currentChatId = chat?.id || null;
     const streamUrl = currentChatId ? `/chat/${currentChatId}/stream` : '/chat/stream';
 
-    const { data, send, isStreaming, isFetching, cancel, id } = useStream(streamUrl);
+    const { data, send, isStreaming, isFetching, cancel, id } = useStream(
+        streamUrl,
+        {
+            onData: (chunk) => {
+                console.log('[useStream] Received chunk:', chunk);
+            },
+            onResponse: (response) => {
+                console.log('[useStream] Stream started:', response.status);
+            },
+            onFinish: () => {
+                console.log('[useStream] Stream finished');
+            },
+        },
+    );
 
     // Auto-focus input and handle auto-streaming on mount
     useEffect(() => {
@@ -77,7 +104,7 @@ function ChatWithStream({ chat, auth, flash }: { chat: ChatType | undefined; aut
     useEffect(() => {
         if (!isStreaming && inputRef.current) {
             inputRef.current.focus();
-            
+
             // Trigger title generation if this is an authenticated user with "Untitled" chat and we have a response
             if (auth.user && chat && currentTitle === 'Untitled' && data && data.trim()) {
                 setShouldGenerateTitle(true);
@@ -98,40 +125,45 @@ function ChatWithStream({ chat, auth, flash }: { chat: ChatType | undefined; aut
         // Title state tracking
     }, [currentTitle, isTitleStreaming]);
 
+    const handleSubmit = useCallback(
+        (e: FormEvent<HTMLFormElement>) => {
+            e.preventDefault();
+            const form = e.currentTarget;
+            const input = form.querySelector('input') as HTMLInputElement;
+            const query = input?.value.trim();
 
-    const handleSubmit = useCallback((e: FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        const form = e.currentTarget;
-        const input = form.querySelector('input') as HTMLInputElement;
-        const query = input?.value.trim();
+            if (!query) return;
 
-        if (!query) return;
+            const toAdd: Message[] = [];
 
-        const toAdd: Message[] = [];
+            // If there's a completed response from previous streaming, add it first
+            if (data && data.trim()) {
+                toAdd.push({
+                    type: 'response',
+                    content: data,
+                });
+            }
 
-        // If there's a completed response from previous streaming, add it first
-        if (data && data.trim()) {
+            // Add the new prompt
             toAdd.push({
-                type: 'response',
-                content: data,
+                type: 'prompt',
+                content: query,
             });
-        }
 
-        // Add the new prompt
-        toAdd.push({
-            type: 'prompt',
-            content: query,
-        });
+            // Update local state
+            setMessages((prev) => [...prev, ...toAdd]);
 
-        // Update local state
-        setMessages((prev) => [...prev, ...toAdd]);
+            // Send all messages including the new ones with selected provider
+            send({
+                messages: [...messages, ...toAdd],
+                provider: selectedProvider,
+            });
 
-        // Send all messages including the new ones
-        send({ messages: [...messages, ...toAdd] });
-
-        input.value = '';
-        inputRef.current?.focus();
-    }, [send, data, messages]);
+            input.value = '';
+            inputRef.current?.focus();
+        },
+        [send, data, messages, selectedProvider],
+    );
 
     return (
         <>
@@ -151,7 +183,7 @@ function ChatWithStream({ chat, auth, flash }: { chat: ChatType | undefined; aut
                     }}
                 />
             )}
-            
+
             {/* Sidebar title updater - separate EventStream for sidebar */}
             {shouldUpdateSidebar && auth.user && chat && (
                 <SidebarTitleUpdater
@@ -161,7 +193,7 @@ function ChatWithStream({ chat, auth, flash }: { chat: ChatType | undefined; aut
                     }}
                 />
             )}
-            
+
             <AppLayout
                 currentChatId={chat?.id}
                 className="flex h-[calc(100vh-theme(spacing.4))] flex-col overflow-hidden md:h-[calc(100vh-theme(spacing.8))]"
@@ -184,11 +216,9 @@ function ChatWithStream({ chat, auth, flash }: { chat: ChatType | undefined; aut
                 {auth.user && chat && (
                     <div className="bg-background flex-shrink-0 border-b px-4 py-3">
                         <div className="mx-auto max-w-3xl">
-                            <h1 className="text-lg font-semibold text-foreground">
+                            <h1 className="text-foreground text-lg font-semibold">
                                 {currentTitle}
-                                {isTitleStreaming && (
-                                    <span className="ml-1 animate-pulse">|</span>
-                                )}
+                                {isTitleStreaming && <span className="ml-1 animate-pulse">|</span>}
                             </h1>
                         </div>
                     </div>
@@ -198,6 +228,14 @@ function ChatWithStream({ chat, auth, flash }: { chat: ChatType | undefined; aut
 
                 <div className="bg-background flex-shrink-0 border-t">
                     <div className="mx-auto max-w-3xl p-4">
+                        <div className="mb-4">
+                            <ProviderSwitcher
+                                availableProviders={availableProviders}
+                                currentProvider={selectedProvider}
+                                onChange={setSelectedProvider}
+                                disabled={isStreaming || isFetching}
+                            />
+                        </div>
                         <form onSubmit={handleSubmit}>
                             <div className="flex gap-2">
                                 <Input
@@ -220,11 +258,11 @@ function ChatWithStream({ chat, auth, flash }: { chat: ChatType | undefined; aut
 }
 
 export default function Chat() {
-    const { auth, chat, flash } = usePage<PageProps>().props;
+    const { auth, chat, flash, availableProviders } = usePage<PageProps>().props;
 
     // Use the chat ID as a key to force complete re-creation of the ChatWithStream component
     // This ensures useStream is completely reinitialized with the correct URL
     const key = chat?.id ? `chat-${chat.id}` : 'no-chat';
 
-    return <ChatWithStream key={key} chat={chat} auth={auth} flash={flash} />;
+    return <ChatWithStream key={key} chat={chat} auth={auth} flash={flash} availableProviders={availableProviders} />;
 }

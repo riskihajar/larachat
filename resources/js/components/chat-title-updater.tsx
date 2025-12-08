@@ -12,11 +12,11 @@ export default function ChatTitleUpdater({ chatId, currentTitle, onTitleUpdate }
         onMessage: (event) => {
             try {
                 const parsed = JSON.parse(event.data);
-                
+
                 if (parsed.title) {
                     // Update the page title
                     document.title = `${parsed.title} - LaraChat`;
-                    
+
                     // Update the conversation title via callback
                     if (onTitleUpdate) {
                         onTitleUpdate(parsed.title);

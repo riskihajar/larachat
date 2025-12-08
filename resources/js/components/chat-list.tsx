@@ -87,22 +87,16 @@ export default function ChatList({ currentChatId, isAuthenticated }: ChatListPro
     useEffect(() => {
         const handleTitleUpdate = (event: CustomEvent) => {
             const { chatId, newTitle } = event.detail;
-            
+
             // Update local state
-            setChats((prevChats) => 
-                prevChats.map((chat) => 
-                    chat.id === chatId ? { ...chat, title: newTitle } : chat
-                )
-            );
-            
+            setChats((prevChats) => prevChats.map((chat) => (chat.id === chatId ? { ...chat, title: newTitle } : chat)));
+
             // Update cache
-            chatCache = chatCache.map((chat) => 
-                chat.id === chatId ? { ...chat, title: newTitle } : chat
-            );
+            chatCache = chatCache.map((chat) => (chat.id === chatId ? { ...chat, title: newTitle } : chat));
         };
 
         window.addEventListener('chatTitleUpdated', handleTitleUpdate as EventListener);
-        
+
         return () => {
             window.removeEventListener('chatTitleUpdated', handleTitleUpdate as EventListener);
         };

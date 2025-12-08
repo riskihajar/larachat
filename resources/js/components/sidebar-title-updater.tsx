@@ -7,17 +7,19 @@ interface SidebarTitleUpdaterProps {
 
 export default function SidebarTitleUpdater({ chatId, onComplete }: SidebarTitleUpdaterProps) {
     const { message } = useEventStream(`/chat/${chatId}/title-stream`, {
-        eventName: "title-update",
-        endSignal: "</stream>",
+        eventName: 'title-update',
+        endSignal: '</stream>',
         onMessage: (event) => {
             try {
                 const parsed = JSON.parse(event.data);
-                
+
                 if (parsed.title) {
                     // Broadcast to any listening components (like ChatList)
-                    window.dispatchEvent(new CustomEvent('chatTitleUpdated', { 
-                        detail: { chatId, newTitle: parsed.title } 
-                    }));
+                    window.dispatchEvent(
+                        new CustomEvent('chatTitleUpdated', {
+                            detail: { chatId, newTitle: parsed.title },
+                        }),
+                    );
                 }
             } catch (error) {
                 console.error('Error parsing sidebar title:', error);
