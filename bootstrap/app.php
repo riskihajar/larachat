@@ -26,6 +26,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'chat/stream',
             'chat/*/stream',
         ]);
+
+        $middleware->alias([
+            'permission' => \App\Http\Middleware\EnsureUserHasPermission::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

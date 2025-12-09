@@ -12,7 +12,7 @@ class ChatPolicy
      */
     public function viewAny(User $user): bool
     {
-        return false;
+        return $user->can('chat.view.all');
     }
 
     /**
@@ -20,7 +20,13 @@ class ChatPolicy
      */
     public function view(User $user, Chat $chat): bool
     {
-        return $user->id === $chat->user_id;
+        // Admin can view all chats
+        if ($user->can('chat.view.all')) {
+            return true;
+        }
+
+        // Users can view their own chats
+        return $user->can('chat.view.own') && $user->id === $chat->user_id;
     }
 
     /**
@@ -28,7 +34,7 @@ class ChatPolicy
      */
     public function create(User $user): bool
     {
-        return true; // Authenticated users can create chats
+        return $user->can('chat.create');
     }
 
     /**
@@ -36,7 +42,13 @@ class ChatPolicy
      */
     public function update(User $user, Chat $chat): bool
     {
-        return $user->id === $chat->user_id; // Users can update their own chats
+        // Admin can update all chats
+        if ($user->can('chat.update.all')) {
+            return true;
+        }
+
+        // Users can update their own chats
+        return $user->can('chat.update.own') && $user->id === $chat->user_id;
     }
 
     /**
@@ -44,7 +56,13 @@ class ChatPolicy
      */
     public function delete(User $user, Chat $chat): bool
     {
-        return $user->id === $chat->user_id; // Users can delete their own chats
+        // Admin can delete all chats
+        if ($user->can('chat.delete.all')) {
+            return true;
+        }
+
+        // Users can delete their own chats
+        return $user->can('chat.delete.own') && $user->id === $chat->user_id;
     }
 
     /**
