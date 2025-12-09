@@ -46,7 +46,7 @@ class ChatFlowTest extends TestCase
         // Visit home page - authenticated users get redirected to new chat
         $response = $this->get('/');
         $response->assertRedirect();
-        
+
         // User should now have a chat from the redirect
         $user->refresh();
         $this->assertCount(1, $user->chats);
@@ -105,10 +105,31 @@ class ChatFlowTest extends TestCase
             ->where('chat.id', $chat1->id)
         );
 
-        // Create second chat
+        // Add a message to chat1 so it's no longer empty
+        $chat1->messages()->create([
+            'type' => 'prompt',
+            'content' => 'Test message',
+        ]);
+
+        // Verify the message was added
+        $this->assertEquals(1, $chat1->messages()->count());
+
+        // Create second chat - should create new one since chat1 now has messages
         $response = $this->post('/chat');
         $user->refresh();
-        $chat2 = $user->chats()->latest()->first();
+
+        // Verify we have 2 chats now
+        $this->assertDatabaseCount('chats', 2);
+
+        // Get fresh chats from database
+        $allChats = $user->chats()->orderBy('id', 'desc')->get();
+        $this->assertCount(2, $allChats);
+
+        // Get the newest chat
+        $chat2 = $allChats->first();
+
+        // Verify chat2 is different from chat1
+        $this->assertNotEquals($chat1->id, $chat2->id);
 
         // Visit the new chat page
         $response = $this->get("/chat/{$chat2->id}");

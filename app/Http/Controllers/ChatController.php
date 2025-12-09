@@ -16,12 +16,9 @@ class ChatController extends Controller
 
     public function index()
     {
-        // For authenticated users, automatically create a new chat and redirect
+        // For authenticated users, find existing empty chat or create new one
         if (Auth::check()) {
-            $chat = Auth::user()->chats()->create([
-                'title' => 'Untitled',
-                'provider' => config('llm.default'),
-            ]);
+            $chat = $this->findOrCreateEmptyChat();
 
             return redirect()->route('chat.show', $chat);
         }
@@ -53,20 +50,15 @@ class ChatController extends Controller
             'provider' => 'nullable|string|in:openai,bedrock',
         ]);
 
-        $title = $request->title;
-
-        // If no title provided, use "Untitled" initially
-        if (! $title) {
-            $title = 'Untitled';
-        }
-
-        $chat = Auth::user()->chats()->create([
-            'title' => $title,
-            'provider' => $request->provider ?? config('llm.default'),
-        ]);
-
-        // If firstMessage provided, save it and trigger streaming via URL parameter
+        // If firstMessage provided, always create new chat (user is starting conversation)
         if ($request->firstMessage) {
+            $title = $request->title ?? 'Untitled';
+
+            $chat = Auth::user()->chats()->create([
+                'title' => $title,
+                'provider' => $request->provider ?? config('llm.default'),
+            ]);
+
             // Save the first message
             $chat->messages()->create([
                 'type' => 'prompt',
@@ -75,6 +67,19 @@ class ChatController extends Controller
 
             return redirect()->route('chat.show', $chat)->with('stream', true);
         }
+
+        // If custom title provided (not "Untitled"), create new chat with that title
+        if ($request->title && $request->title !== 'Untitled') {
+            $chat = Auth::user()->chats()->create([
+                'title' => $request->title,
+                'provider' => $request->provider ?? config('llm.default'),
+            ]);
+
+            return redirect()->route('chat.show', $chat);
+        }
+
+        // If no custom title or firstMessage, find existing empty chat or create new one
+        $chat = $this->findOrCreateEmptyChat($request->provider);
 
         return redirect()->route('chat.show', $chat);
     }
@@ -286,5 +291,33 @@ class ChatController extends Controller
             $chat->update(['title' => $fallbackTitle]);
             \Log::error('Error generating title, using fallback', ['error' => $e->getMessage()]);
         }
+    }
+
+    /**
+     * Find existing empty chat or create new one.
+     * Empty chat is defined as: title = 'Untitled' AND no messages.
+     * Returns the newest empty chat if found, otherwise creates new chat.
+     */
+    private function findOrCreateEmptyChat(?string $provider = null): Chat
+    {
+        // Look for existing empty chat (Untitled with no messages)
+        $emptyChat = Auth::user()->chats()
+            ->where('title', 'Untitled')
+            ->whereDoesntHave('messages')
+            ->latest()
+            ->first();
+
+        if ($emptyChat) {
+            // Flash message to notify user
+            session()->flash('info', 'Melanjutkan chat kosong');
+
+            return $emptyChat;
+        }
+
+        // No empty chat found, create new one
+        return Auth::user()->chats()->create([
+            'title' => 'Untitled',
+            'provider' => $provider ?? config('llm.default'),
+        ]);
     }
 }
