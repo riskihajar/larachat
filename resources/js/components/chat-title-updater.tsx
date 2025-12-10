@@ -8,7 +8,7 @@ interface ChatTitleUpdaterProps {
 
 export default function ChatTitleUpdater({ chatId, currentTitle, onTitleUpdate }: ChatTitleUpdaterProps) {
     const { message } = useEventStream(`/chat/${chatId}/title-stream`, {
-        event: 'title-update',
+        eventName: 'title-update',
         onMessage: (event) => {
             try {
                 const parsed = JSON.parse(event.data);
