@@ -13,14 +13,20 @@ Watch the complete tutorial on YouTube:
 ## Features
 
 - 🚀 Real-time streaming responses using Server-Sent Events (SSE)
-- 💬 ChatGPT-like interface with message history
+- 💬 Modern chat interface with shadcn/ui InputGroup components
 - 🔐 Optional authentication with message persistence
 - 🎯 Automatic chat title generation using `useEventStream`
 - 🎨 Beautiful UI with Tailwind CSS v4 and shadcn/ui
 - 📱 Responsive design with mobile support
 - 🌓 Dark/light mode with system preference detection
-- 🔄 **Multi-provider support**: OpenAI and AWS Bedrock (Claude models)
+- 🔄 **Multi-provider & multi-model support**: OpenAI (GPT-4o, GPT-4 Turbo, GPT-3.5) and AWS Bedrock (Claude Sonnet 4.5, Claude Sonnet 3.7, Claude Haiku 3.5)
 - ⚡ **Custom AWS Bedrock streaming**: Real-time word-by-word streaming with binary event stream parser
+- 🎛️ **Per-chat model selection**: Choose different AI models for each conversation
+- 🔢 **Character counter**: Real-time character count display
+- ⏹️ **Stop generation**: Cancel streaming responses mid-generation
+- ⌨️ **Keyboard shortcuts**: Enter to send, Shift+Enter for new line
+- 📝 **Multi-line input**: Auto-resizing textarea with modern input group design
+- 🗂️ **ULID-based IDs**: All database records use ULIDs for better sortability and security
 
 ## System Requirements
 
@@ -348,29 +354,42 @@ This creates a seamless experience where users see titles generated and updated 
 - **Real-time Title Generation**: Event streams automatically update chat titles
 - **Error Handling**: Graceful fallbacks for API failures
 
-## Multi-Provider Architecture
+## Multi-Provider & Multi-Model Architecture
 
-This fork extends the original demo with support for multiple AI providers through a clean, interface-based architecture.
+This fork extends the original demo with support for multiple AI providers and per-chat model selection through a clean, interface-based architecture.
 
-### Provider Switcher
+### Model Selector
 
-Users can select their preferred AI provider in the UI:
+Users can select their preferred AI model for each conversation through an elegant dropdown interface:
 
 ```tsx
-import { ProviderSwitcher } from '@/components/provider-switcher';
+import { InputGroup, InputGroupAddon, InputGroupTextarea } from '@/components/ui/input-group';
+import { DropdownMenu } from '@/components/ui/dropdown-menu';
 
-<ProviderSwitcher
-    value={selectedProvider}
-    onValueChange={setSelectedProvider}
-/>
+// Modern chat input with inline model selector
+<InputGroup>
+    <InputGroupTextarea placeholder="Ask, Search or Chat..." />
+    <InputGroupAddon align="block-end">
+        <DropdownMenu>
+            <DropdownMenuTrigger>
+                AWS Bedrock: Claude Sonnet 4.5
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+                {/* All available models grouped by provider */}
+            </DropdownMenuContent>
+        </DropdownMenu>
+        <InputGroupText>52 chars</InputGroupText>
+        <InputGroupButton>Send</InputGroupButton>
+    </InputGroupAddon>
+</InputGroup>
 ```
 
-### Supported Providers
+### Supported Providers & Models
 
-| Provider | Models | Streaming |
-|----------|--------|-----------|
-| **OpenAI** | GPT-4, GPT-4 Turbo, GPT-3.5 | ✅ Native SDK |
-| **AWS Bedrock** | Claude Sonnet 4, Claude Opus | ✅ Custom Binary Parser |
+| Provider | Available Models | Streaming |
+|----------|-----------------|-----------|
+| **OpenAI** | GPT-4o, GPT-4o Mini, GPT-4 Turbo, GPT-4, GPT-3.5 Turbo | ✅ Native SDK |
+| **AWS Bedrock** | Claude Sonnet 4.5, Claude Sonnet 3.7, Claude Sonnet 3.5, Claude Haiku 3.5 | ✅ Custom Binary Parser |
 
 ### AWS Bedrock Implementation
 
@@ -394,6 +413,24 @@ if (isset($chunk['bytes'])) {
 
 For detailed implementation guide, see **[docs/AWS_BEDROCK_STREAMING.md](docs/AWS_BEDROCK_STREAMING.md)**
 
+### Model Selection Storage
+
+Each chat stores both the provider and specific model being used:
+
+```php
+// Database schema
+Schema::create('chats', function (Blueprint $table) {
+    $table->ulid('id')->primary();
+    $table->foreignUlid('user_id')->constrained()->cascadeOnDelete();
+    $table->string('title');
+    $table->string('provider'); // 'openai' or 'bedrock'
+    $table->string('model');    // Specific model ID
+    $table->timestamps();
+});
+```
+
+The model field stores the full model identifier (e.g., `us.anthropic.claude-sonnet-4-20250514-v1:0` for AWS Bedrock or `gpt-4o` for OpenAI), allowing precise model tracking per conversation.
+
 ### Adding New Providers
 
 To add a new LLM provider:
@@ -406,9 +443,16 @@ use App\Services\LLM\Contracts\LLMProviderInterface;
 
 class YourProvider implements LLMProviderInterface
 {
+    protected string $model;
+
+    public function __construct(?string $model = null)
+    {
+        $this->model = $model ?? config('llm.your-provider.model');
+    }
+
     public function stream(array $messages): \Generator
     {
-        // Implement streaming logic
+        // Implement streaming logic for your provider
         foreach ($chunks as $chunk) {
             yield $chunk;
         }
@@ -416,7 +460,7 @@ class YourProvider implements LLMProviderInterface
 
     public function generateTitle(string $firstMessage): string
     {
-        // Generate chat title
+        // Generate chat title using your provider
         return 'Generated Title';
     }
 
@@ -427,47 +471,91 @@ class YourProvider implements LLMProviderInterface
 
     public function getModel(): string
     {
-        return 'your-model-id';
+        return $this->model;
     }
 }
 ```
 
 2. Register in `LLMProviderFactory`:
 ```php
-public static function make(string $provider): LLMProviderInterface
+public static function make(?string $provider = null, ?string $model = null): LLMProviderInterface
 {
+    $provider = $provider ?? config('llm.default');
+    $model = $model ?? config("llm.default_models.{$provider}");
+
     return match ($provider) {
-        'openai' => new OpenAIProvider(),
-        'bedrock' => new BedrockProvider(),
-        'your-provider' => new YourProvider(),
+        'openai' => new OpenAIProvider($model),
+        'bedrock' => new BedrockProvider($model),
+        'your-provider' => new YourProvider($model),
         default => throw new \InvalidArgumentException("Unknown provider: {$provider}"),
     };
 }
 ```
 
-3. Add provider configuration to `config/llm.php`
-4. Update provider switcher UI component
+3. Add configuration to `config/llm.php`:
+```php
+'providers' => [
+    'openai' => 'OpenAI',
+    'bedrock' => 'AWS Bedrock',
+    'your-provider' => 'Your Provider',
+],
+
+'models' => [
+    'your-provider' => [
+        'model-1' => 'Model 1 Display Name',
+        'model-2' => 'Model 2 Display Name',
+    ],
+],
+
+'default_models' => [
+    'your-provider' => 'model-1',
+],
+```
+
+4. Models will automatically appear in the UI dropdown grouped by provider
 
 ## Project Structure
 
 ```
-app/Services/LLM/
-├── Contracts/
-│   └── LLMProviderInterface.php    # Provider interface
-├── Providers/
-│   ├── OpenAIProvider.php          # OpenAI implementation
-│   └── BedrockProvider.php         # AWS Bedrock implementation
-└── LLMProviderFactory.php          # Provider factory
+app/
+├── Concerns/
+│   └── HasUlids.php                # ULID trait for models
+├── Models/
+│   ├── Chat.php                    # Chat model with ULID
+│   ├── Message.php                 # Message model with ULID
+│   ├── User.php                    # User model with ULID
+│   ├── Role.php                    # Custom role model for Spatie
+│   └── Permission.php              # Custom permission model for Spatie
+└── Services/LLM/
+    ├── Contracts/
+    │   └── LLMProviderInterface.php    # Provider interface
+    ├── Providers/
+    │   ├── OpenAIProvider.php          # OpenAI implementation
+    │   └── BedrockProvider.php         # AWS Bedrock implementation
+    └── LLMProviderFactory.php          # Provider factory with model support
 
 resources/js/
 ├── pages/
-│   └── chat.tsx                    # Main chat with provider selection
+│   └── chat.tsx                    # Main chat with modern InputGroup UI
 ├── components/
-│   ├── provider-switcher.tsx       # UI for provider selection
 │   ├── conversation.tsx            # Message display
-│   └── ui/                         # shadcn/ui components
+│   ├── title-generator.tsx         # Real-time title generation
+│   ├── sidebar-title-updater.tsx   # Sidebar sync
+│   └── ui/
+│       ├── input-group.tsx         # shadcn InputGroup component
+│       ├── textarea.tsx            # shadcn Textarea component
+│       ├── dropdown-menu.tsx       # shadcn Dropdown component
+│       ├── separator.tsx           # shadcn Separator component
+│       └── ...                     # Other shadcn/ui components
 └── layouts/
     └── app-layout.tsx              # Main application layout
+
+database/migrations/
+├── 0001_01_01_000000_create_users_table.php        # Users with ULID
+├── 2025_05_28_173049_create_chats_table.php        # Chats with ULID
+├── 2025_05_28_173221_create_messages_table.php     # Messages with ULID
+├── 2025_12_09_021430_create_permission_tables.php  # Permissions with ULID
+└── 2025_12_10_035518_add_model_to_chats_table.php  # Model field addition
 
 docs/
 └── AWS_BEDROCK_STREAMING.md        # Detailed AWS implementation guide
@@ -534,15 +622,19 @@ This separation actually gives you more flexibility - you can have both traditio
 ### Original Project
 This is a fork of [Laravel Chat Demo](https://github.com/laravel/larachat) by the Laravel team, which demonstrates the `useStream` hook for React applications.
 
-### Multi-Provider Extension
-Multi-provider architecture and AWS Bedrock streaming implementation added by [@riskihajar](https://github.com/riskihajar).
+### Multi-Provider & UI Enhancements
+Multi-provider architecture, modern UI components, and ULID implementation by [@riskihajar](https://github.com/riskihajar).
 
 **Key contributions:**
-- Interface-based provider abstraction
-- AWS Bedrock binary event stream parser
-- Real-time streaming for Claude models
-- Provider switcher UI component
-- Comprehensive AWS Bedrock documentation
+- Interface-based provider abstraction with per-chat model selection
+- AWS Bedrock binary event stream parser for real-time streaming
+- Modern chat interface with shadcn/ui InputGroup components
+- ULID-based database architecture for all models
+- Character counter and stop generation functionality
+- Keyboard shortcuts (Enter/Shift+Enter) support
+- Multi-line auto-resizing textarea input
+- Spatie Permission package integration with ULID support
+- Comprehensive AWS Bedrock streaming documentation
 
 ## License
 
