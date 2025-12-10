@@ -12,9 +12,9 @@ class OpenAIProvider implements LLMProviderInterface
 
     protected string $titleModel;
 
-    public function __construct()
+    public function __construct(?string $model = null)
     {
-        $this->model = config('llm.openai.model', 'gpt-4');
+        $this->model = $model ?? config('llm.openai.model', 'gpt-4o');
         $this->titleModel = config('llm.openai.title_model', 'gpt-4o-mini');
     }
 

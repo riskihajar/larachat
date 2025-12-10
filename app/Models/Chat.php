@@ -17,6 +17,7 @@ class Chat extends Model
         'user_id',
         'title',
         'provider',
+        'model',
     ];
 
     public function user(): BelongsTo

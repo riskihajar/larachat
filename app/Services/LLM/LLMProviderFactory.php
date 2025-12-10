@@ -12,13 +12,14 @@ class LLMProviderFactory
     /**
      * Create an LLM provider instance.
      */
-    public static function make(?string $provider = null): LLMProviderInterface
+    public static function make(?string $provider = null, ?string $model = null): LLMProviderInterface
     {
         $provider = $provider ?? config('llm.default');
+        $model = $model ?? config("llm.default_models.{$provider}");
 
         return match ($provider) {
-            'openai' => new OpenAIProvider,
-            'bedrock' => new BedrockProvider,
+            'openai' => new OpenAIProvider($model),
+            'bedrock' => new BedrockProvider($model),
             default => throw new InvalidArgumentException("Unsupported LLM provider: {$provider}"),
         };
     }

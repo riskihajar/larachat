@@ -1,5 +1,5 @@
 import Conversation from '@/components/conversation';
-import ProviderSwitcher from '@/components/provider-switcher';
+import ModelSelector from '@/components/model-selector';
 import SidebarTitleUpdater from '@/components/sidebar-title-updater';
 import TitleGenerator from '@/components/title-generator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -21,6 +21,7 @@ type ChatType = {
     id: number;
     title: string;
     provider: string;
+    model?: string;
     messages: Message[];
     created_at: string;
     updated_at: string;
@@ -35,7 +36,7 @@ type PageProps = {
         };
     };
     chat?: ChatType;
-    availableProviders: Record<string, string>;
+    availableModels: Record<string, { label: string; models: Record<string, string> }>;
     flash?: {
         stream?: boolean;
     };
@@ -45,19 +46,31 @@ function ChatWithStream({
     chat,
     auth,
     flash,
-    availableProviders,
+    availableModels,
 }: {
     chat: ChatType | undefined;
     auth: PageProps['auth'];
     flash: PageProps['flash'];
-    availableProviders: Record<string, string>;
+    availableModels: Record<string, { label: string; models: Record<string, string> }>;
 }) {
     const [messages, setMessages] = useState<Message[]>(chat?.messages || []);
     const [currentTitle, setCurrentTitle] = useState<string>(chat?.title || 'Untitled');
     const [shouldGenerateTitle, setShouldGenerateTitle] = useState<boolean>(false);
     const [isTitleStreaming, setIsTitleStreaming] = useState<boolean>(false);
     const [shouldUpdateSidebar, setShouldUpdateSidebar] = useState<boolean>(false);
-    const [selectedProvider, setSelectedProvider] = useState<string>(chat?.provider || Object.keys(availableProviders)[0]);
+
+    // Get initial model selection (format: "provider:model")
+    const getInitialModel = () => {
+        if (chat?.provider && chat?.model) {
+            return `${chat.provider}:${chat.model}`;
+        }
+        // Fallback to first provider and its first model
+        const firstProvider = Object.keys(availableModels)[0];
+        const firstModel = Object.keys(availableModels[firstProvider]?.models || {})[0];
+        return `${firstProvider}:${firstModel}`;
+    };
+
+    const [selectedModel, setSelectedModel] = useState<string>(getInitialModel());
     const inputRef = useRef<HTMLInputElement>(null);
 
     const currentChatId = chat?.id || null;
@@ -150,16 +163,16 @@ function ChatWithStream({
             // Update local state
             setMessages((prev) => [...prev, ...toAdd]);
 
-            // Send all messages including the new ones with selected provider
+            // Send all messages including the new ones with selected model
             send({
                 messages: [...messages, ...toAdd],
-                provider: selectedProvider,
+                model: selectedModel,
             });
 
             input.value = '';
             inputRef.current?.focus();
         },
-        [send, data, messages, selectedProvider],
+        [send, data, messages, selectedModel],
     );
 
     return (
@@ -226,10 +239,10 @@ function ChatWithStream({
                 <div className="bg-background flex-shrink-0 border-t">
                     <div className="mx-auto max-w-3xl p-4">
                         <div className="mb-4">
-                            <ProviderSwitcher
-                                availableProviders={availableProviders}
-                                currentProvider={selectedProvider}
-                                onChange={setSelectedProvider}
+                            <ModelSelector
+                                availableModels={availableModels}
+                                currentModel={selectedModel}
+                                onChange={setSelectedModel}
                                 disabled={isStreaming || isFetching}
                             />
                         </div>
@@ -255,11 +268,11 @@ function ChatWithStream({
 }
 
 export default function Chat() {
-    const { auth, chat, flash, availableProviders } = usePage<PageProps>().props;
+    const { auth, chat, flash, availableModels } = usePage<PageProps>().props;
 
     // Use the chat ID as a key to force complete re-creation of the ChatWithStream component
     // This ensures useStream is completely reinitialized with the correct URL
     const key = chat?.id ? `chat-${chat.id}` : 'no-chat';
 
-    return <ChatWithStream key={key} chat={chat} auth={auth} flash={flash} availableProviders={availableProviders} />;
+    return <ChatWithStream key={key} chat={chat} auth={auth} flash={flash} availableModels={availableModels} />;
 }

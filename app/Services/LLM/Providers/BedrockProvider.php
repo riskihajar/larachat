@@ -19,7 +19,7 @@ class BedrockProvider implements LLMProviderInterface
 
     protected string $titleModel;
 
-    public function __construct()
+    public function __construct(?string $model = null)
     {
         $this->client = new BedrockRuntimeClient([
             'region' => config('llm.bedrock.region'),
@@ -30,7 +30,7 @@ class BedrockProvider implements LLMProviderInterface
             ],
         ]);
 
-        $this->model = config('llm.bedrock.model');
+        $this->model = $model ?? config('llm.bedrock.model');
         $this->titleModel = config('llm.bedrock.title_model', $this->model);
     }
 

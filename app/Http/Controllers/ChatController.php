@@ -26,7 +26,7 @@ class ChatController extends Controller
         // For unauthenticated users, show the blank chat page
         return Inertia::render('chat', [
             'chat' => null,
-            'availableProviders' => LLMProviderFactory::getAvailableProviders(),
+            'availableModels' => $this->getAvailableModels(),
         ]);
     }
 
@@ -38,7 +38,7 @@ class ChatController extends Controller
 
         return Inertia::render('chat', [
             'chat' => $chat,
-            'availableProviders' => LLMProviderFactory::getAvailableProviders(),
+            'availableModels' => $this->getAvailableModels(),
         ]);
     }
 
@@ -47,8 +47,11 @@ class ChatController extends Controller
         $request->validate([
             'title' => 'nullable|string|max:255',
             'firstMessage' => 'nullable|string',
-            'provider' => 'nullable|string|in:openai,bedrock',
+            'model' => 'nullable|string', // format: "provider:model"
         ]);
+
+        // Parse model (format: "provider:model")
+        [$provider, $model] = $this->parseModel($request->model);
 
         // If firstMessage provided, always create new chat (user is starting conversation)
         if ($request->firstMessage) {
@@ -56,7 +59,8 @@ class ChatController extends Controller
 
             $chat = Auth::user()->chats()->create([
                 'title' => $title,
-                'provider' => $request->provider ?? config('llm.default'),
+                'provider' => $provider,
+                'model' => $model,
             ]);
 
             // Save the first message
@@ -72,14 +76,15 @@ class ChatController extends Controller
         if ($request->title && $request->title !== 'Untitled') {
             $chat = Auth::user()->chats()->create([
                 'title' => $request->title,
-                'provider' => $request->provider ?? config('llm.default'),
+                'provider' => $provider,
+                'model' => $model,
             ]);
 
             return redirect()->route('chat.show', $chat);
         }
 
         // If no custom title or firstMessage, find existing empty chat or create new one
-        $chat = $this->findOrCreateEmptyChat($request->provider);
+        $chat = $this->findOrCreateEmptyChat($provider, $model);
 
         return redirect()->route('chat.show', $chat);
     }
@@ -125,9 +130,11 @@ class ChatController extends Controller
             $this->authorize('view', $chat);
         }
 
-        // Determine which provider to use
-        $providerName = $request->input('provider') ?? ($chat?->provider ?? config('llm.default'));
-        $provider = LLMProviderFactory::make($providerName);
+        // Determine which provider and model to use
+        $providerName = $chat?->provider ?? config('llm.default');
+        $modelName = $chat?->model ?? config("llm.default_models.{$providerName}");
+
+        $provider = LLMProviderFactory::make($providerName, $modelName);
 
         return response()->stream(function () use ($request, $chat, $provider) {
             // Disable ALL output buffering layers
@@ -298,7 +305,7 @@ class ChatController extends Controller
      * Empty chat is defined as: title = 'Untitled' AND no messages.
      * Returns the newest empty chat if found, otherwise creates new chat.
      */
-    private function findOrCreateEmptyChat(?string $provider = null): Chat
+    private function findOrCreateEmptyChat(?string $provider = null, ?string $model = null): Chat
     {
         // Look for existing empty chat (Untitled with no messages)
         $emptyChat = Auth::user()->chats()
@@ -315,9 +322,54 @@ class ChatController extends Controller
         }
 
         // No empty chat found, create new one
+        $provider = $provider ?? config('llm.default');
+        $model = $model ?? config("llm.default_models.{$provider}");
+
         return Auth::user()->chats()->create([
             'title' => 'Untitled',
-            'provider' => $provider ?? config('llm.default'),
+            'provider' => $provider,
+            'model' => $model,
         ]);
+    }
+
+    /**
+     * Get available models grouped by provider.
+     */
+    private function getAvailableModels(): array
+    {
+        $providers = config('llm.providers', []);
+        $models = config('llm.models', []);
+
+        $result = [];
+        foreach ($providers as $providerKey => $providerLabel) {
+            if (isset($models[$providerKey])) {
+                $result[$providerKey] = [
+                    'label' => $providerLabel,
+                    'models' => $models[$providerKey],
+                ];
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Parse model string (format: "provider:model") into provider and model.
+     * Returns [provider, model] array with fallback to defaults.
+     */
+    private function parseModel(?string $modelString): array
+    {
+        if (! $modelString || ! str_contains($modelString, ':')) {
+            $defaultProvider = config('llm.default');
+
+            return [
+                $defaultProvider,
+                config("llm.default_models.{$defaultProvider}"),
+            ];
+        }
+
+        [$provider, $model] = explode(':', $modelString, 2);
+
+        return [$provider, $model];
     }
 }
