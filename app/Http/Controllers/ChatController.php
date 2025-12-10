@@ -130,9 +130,30 @@ class ChatController extends Controller
             $this->authorize('view', $chat);
         }
 
+        // Parse model from request if provided (format: "provider:model")
+        $requestModel = $request->input('model');
+        if ($requestModel && str_contains($requestModel, ':')) {
+            [$requestProvider, $requestModelName] = explode(':', $requestModel, 2);
+        } else {
+            $requestProvider = null;
+            $requestModelName = null;
+        }
+
         // Determine which provider and model to use
-        $providerName = $chat?->provider ?? config('llm.default');
-        $modelName = $chat?->model ?? config("llm.default_models.{$providerName}");
+        // Priority: request > chat > config default
+        $providerName = $requestProvider ?? $chat?->provider ?? config('llm.default');
+        $modelName = $requestModelName ?? $chat?->model ?? config("llm.default_models.{$providerName}");
+
+        // Update chat's provider and model if different from request and this is first message
+        if ($chat && $requestProvider && $requestModelName) {
+            $isFirstMessage = $chat->messages()->count() === 0;
+            if ($isFirstMessage && ($chat->provider !== $requestProvider || $chat->model !== $requestModelName)) {
+                $chat->update([
+                    'provider' => $requestProvider,
+                    'model' => $requestModelName,
+                ]);
+            }
+        }
 
         $provider = LLMProviderFactory::make($providerName, $modelName);
 

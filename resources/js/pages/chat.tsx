@@ -80,6 +80,13 @@ function ChatWithStream({
     const [inputValue, setInputValue] = useState<string>('');
     const inputRef = useRef<HTMLTextAreaElement>(null);
 
+    // Save selected model to localStorage whenever it changes
+    useEffect(() => {
+        if (selectedModel) {
+            localStorage.setItem('selectedModel', selectedModel);
+        }
+    }, [selectedModel]);
+
     const currentChatId = chat?.id || null;
     const streamUrl = currentChatId ? `/chat/${currentChatId}/stream` : '/chat/stream';
 

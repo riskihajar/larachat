@@ -2,7 +2,7 @@ import { Breadcrumbs } from '@/components/breadcrumbs';
 import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { type BreadcrumbItem as BreadcrumbItemType, type User } from '@/types';
-import { Link, router, useForm, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
 
 interface AppSidebarHeaderProps {
@@ -11,13 +11,18 @@ interface AppSidebarHeaderProps {
 
 export function AppSidebarHeader({ breadcrumbs = [] }: AppSidebarHeaderProps) {
     const { auth } = usePage<{ auth: { user?: User } }>().props;
-    const { post, processing } = useForm();
 
     const handleNewChat = () => {
         if (!auth.user) {
             router.visit('/login');
         } else {
-            post('/chat');
+            // Get selected model from localStorage
+            const selectedModel = localStorage.getItem('selectedModel');
+
+            // Use router.post directly with form data
+            router.post('/chat', {
+                model: selectedModel,
+            });
         }
     };
 
@@ -38,7 +43,7 @@ export function AppSidebarHeader({ breadcrumbs = [] }: AppSidebarHeaderProps) {
                         </Button>
                     </>
                 ) : (
-                    <Button variant="ghost" size="icon" onClick={handleNewChat} disabled={processing}>
+                    <Button variant="ghost" size="icon" onClick={handleNewChat}>
                         <Plus className="h-4 w-4" />
                     </Button>
                 )}
