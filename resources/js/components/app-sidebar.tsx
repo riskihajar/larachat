@@ -40,19 +40,18 @@ export function AppSidebar({ currentChatId }: AppSidebarProps) {
             </SidebarHeader>
 
             <SidebarContent>
-
                 <div className="px-3 py-2">
                     <ChatList currentChatId={currentChatId} isAuthenticated={!!auth.user} />
                 </div>
-                
+
                 {hasAdminAccess && (
                     <SidebarGroup>
-                        <SidebarGroupLabel>Administration</SidebarGroupLabel>
+                        <SidebarGroupLabel>Settings</SidebarGroupLabel>
                         <SidebarGroupContent>
                             <SidebarMenu>
                                 <SidebarMenuItem>
                                     <SidebarMenuButton asChild>
-                                        <Link href="/admin/users">
+                                        <Link href="/settings/users">
                                             <Users className="size-4" />
                                             <span>Users</span>
                                         </Link>
@@ -60,7 +59,7 @@ export function AppSidebar({ currentChatId }: AppSidebarProps) {
                                 </SidebarMenuItem>
                                 <SidebarMenuItem>
                                     <SidebarMenuButton asChild>
-                                        <Link href="/admin/roles">
+                                        <Link href="/settings/roles">
                                             <Shield className="size-4" />
                                             <span>Roles</span>
                                         </Link>

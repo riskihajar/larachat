@@ -13,7 +13,7 @@ interface Props {
 export default function RolesIndex({ roles }: Props) {
     const handleDelete = (roleId: number) => {
         if (confirm('Are you sure you want to delete this role?')) {
-            router.delete(`/admin/roles/${roleId}`);
+            router.delete(`/settings/roles/${roleId}`);
         }
     };
 
@@ -22,11 +22,11 @@ export default function RolesIndex({ roles }: Props) {
             <Head title="Manage Roles" />
             <AppSidebarLayout
                 breadcrumbs={[
-                    { title: 'Admin', href: '/admin/users' },
-                    { title: 'Roles', href: '/admin/roles' },
+                    { title: 'Settings', href: '/settings/users' },
+                    { title: 'Roles', href: '/settings/roles' },
                 ]}
             >
-                <div className="container mx-auto py-8 px-4">
+                <div className="container mx-auto px-4 py-8">
                     <Card>
                         <CardHeader>
                             <div className="flex items-center justify-between">
@@ -34,7 +34,7 @@ export default function RolesIndex({ roles }: Props) {
                                     <CardTitle>Roles Management</CardTitle>
                                     <CardDescription>Manage roles and their permissions</CardDescription>
                                 </div>
-                                <Link href="/admin/roles/create">
+                                <Link href="/settings/roles/create">
                                     <Button>
                                         <Plus className="mr-2 size-4" />
                                         Add Role
@@ -59,9 +59,7 @@ export default function RolesIndex({ roles }: Props) {
                                             <TableCell className="font-medium">{role.name}</TableCell>
                                             <TableCell>
                                                 {role.permissions ? (
-                                                    <span className="text-muted-foreground">
-                                                        {role.permissions.length} permissions
-                                                    </span>
+                                                    <span className="text-muted-foreground">{role.permissions.length} permissions</span>
                                                 ) : (
                                                     <span className="text-muted-foreground">0 permissions</span>
                                                 )}
@@ -72,7 +70,7 @@ export default function RolesIndex({ roles }: Props) {
                                             <TableCell>{new Date(role.created_at).toLocaleDateString()}</TableCell>
                                             <TableCell className="text-right">
                                                 <div className="flex justify-end gap-2">
-                                                    <Link href={`/admin/roles/${role.id}/edit`}>
+                                                    <Link href={`/settings/roles/${role.id}/edit`}>
                                                         <Button variant="outline" size="sm">
                                                             <Edit className="size-4" />
                                                         </Button>
@@ -87,9 +85,7 @@ export default function RolesIndex({ roles }: Props) {
                                 </TableBody>
                             </Table>
 
-                            {roles.length === 0 && (
-                                <div className="py-8 text-center text-muted-foreground">No roles found.</div>
-                            )}
+                            {roles.length === 0 && <div className="text-muted-foreground py-8 text-center">No roles found.</div>}
                         </CardContent>
                     </Card>
                 </div>

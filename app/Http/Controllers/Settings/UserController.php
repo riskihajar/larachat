@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Admin;
+namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
@@ -24,7 +24,7 @@ class UserController extends Controller
 
         $users = User::with('roles')->paginate(20);
 
-        return Inertia::render('admin/users/index', [
+        return Inertia::render('settings/users/index', [
             'users' => $users,
         ]);
     }
@@ -38,7 +38,7 @@ class UserController extends Controller
 
         $roles = Role::all();
 
-        return Inertia::render('admin/users/create', [
+        return Inertia::render('settings/users/create', [
             'roles' => $roles,
         ]);
     }
@@ -65,7 +65,7 @@ class UserController extends Controller
 
         $user->assignRole($validated['role']);
 
-        return redirect()->route('admin.users.index')
+        return redirect()->route('settings.users.index')
             ->with('success', 'User created successfully.');
     }
 
@@ -78,7 +78,7 @@ class UserController extends Controller
 
         $user->load('roles', 'chats');
 
-        return Inertia::render('admin/users/show', [
+        return Inertia::render('settings/users/show', [
             'user' => $user,
         ]);
     }
@@ -93,7 +93,7 @@ class UserController extends Controller
         $user->load('roles');
         $roles = Role::all();
 
-        return Inertia::render('admin/users/edit', [
+        return Inertia::render('settings/users/edit', [
             'user' => $user,
             'roles' => $roles,
         ]);
@@ -121,7 +121,7 @@ class UserController extends Controller
 
         $user->syncRoles([$validated['role']]);
 
-        return redirect()->route('admin.users.index')
+        return redirect()->route('settings.users.index')
             ->with('success', 'User updated successfully.');
     }
 
@@ -139,7 +139,7 @@ class UserController extends Controller
 
         $user->delete();
 
-        return redirect()->route('admin.users.index')
+        return redirect()->route('settings.users.index')
             ->with('success', 'User deleted successfully.');
     }
 }

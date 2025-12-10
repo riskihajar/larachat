@@ -63,20 +63,17 @@ function ChatWithStream({
     const currentChatId = chat?.id || null;
     const streamUrl = currentChatId ? `/chat/${currentChatId}/stream` : '/chat/stream';
 
-    const { data, send, isStreaming, isFetching, cancel, id } = useStream(
-        streamUrl,
-        {
-            onData: (chunk) => {
-                console.log('[useStream] Received chunk:', chunk);
-            },
-            onResponse: (response) => {
-                console.log('[useStream] Stream started:', response.status);
-            },
-            onFinish: () => {
-                console.log('[useStream] Stream finished');
-            },
+    const { data, send, isStreaming, isFetching, cancel, id } = useStream(streamUrl, {
+        onData: (chunk) => {
+            console.log('[useStream] Received chunk:', chunk);
         },
-    );
+        onResponse: (response) => {
+            console.log('[useStream] Stream started:', response.status);
+        },
+        onFinish: () => {
+            console.log('[useStream] Stream finished');
+        },
+    });
 
     // Auto-focus input and handle auto-streaming on mount
     useEffect(() => {

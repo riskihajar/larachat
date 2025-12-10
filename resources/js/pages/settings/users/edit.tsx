@@ -4,39 +4,40 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppSidebarLayout from '@/layouts/app/app-sidebar-layout';
-import type { Role } from '@/types';
+import type { Role, User } from '@/types';
 import { Head, useForm } from '@inertiajs/react';
 import { ArrowLeft } from 'lucide-react';
 
 interface Props {
+    user: User;
     roles: Role[];
 }
 
-export default function UsersCreate({ roles }: Props) {
-    const { data, setData, post, processing, errors } = useForm({
-        name: '',
-        email: '',
+export default function UsersEdit({ user, roles }: Props) {
+    const { data, setData, put, processing, errors } = useForm({
+        name: user.name,
+        email: user.email,
         password: '',
         password_confirmation: '',
-        role: '',
+        role: user.roles && user.roles.length > 0 ? user.roles[0].name : '',
     });
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        post('/admin/users');
+        put(`/settings/users/${user.id}`);
     };
 
     return (
         <>
-            <Head title="Create User" />
+            <Head title="Edit User" />
             <AppSidebarLayout
                 breadcrumbs={[
-                    { title: 'Admin', href: '/admin/users' },
-                    { title: 'Users', href: '/admin/users' },
-                    { title: 'Create', href: '/admin/users/create' },
+                    { title: 'Settings', href: '/settings/users' },
+                    { title: 'Users', href: '/settings/users' },
+                    { title: 'Edit', href: `/settings/users/${user.id}/edit` },
                 ]}
             >
-                <div className="container mx-auto py-8 px-4">
+                <div className="container mx-auto px-4 py-8">
                     <Card>
                         <CardHeader>
                             <div className="flex items-center gap-4">
@@ -44,8 +45,8 @@ export default function UsersCreate({ roles }: Props) {
                                     <ArrowLeft className="size-4" />
                                 </Button>
                                 <div>
-                                    <CardTitle>Create New User</CardTitle>
-                                    <CardDescription>Add a new user to the system</CardDescription>
+                                    <CardTitle>Edit User</CardTitle>
+                                    <CardDescription>Update user information and role</CardDescription>
                                 </div>
                             </div>
                         </CardHeader>
@@ -53,39 +54,25 @@ export default function UsersCreate({ roles }: Props) {
                             <form onSubmit={handleSubmit} className="space-y-6">
                                 <div className="space-y-2">
                                     <Label htmlFor="name">Name</Label>
-                                    <Input
-                                        id="name"
-                                        value={data.name}
-                                        onChange={(e) => setData('name', e.target.value)}
-                                        placeholder="John Doe"
-                                        required
-                                    />
-                                    {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
+                                    <Input id="name" value={data.name} onChange={(e) => setData('name', e.target.value)} required />
+                                    {errors.name && <p className="text-destructive text-sm">{errors.name}</p>}
                                 </div>
 
                                 <div className="space-y-2">
                                     <Label htmlFor="email">Email</Label>
-                                    <Input
-                                        id="email"
-                                        type="email"
-                                        value={data.email}
-                                        onChange={(e) => setData('email', e.target.value)}
-                                        placeholder="john@example.com"
-                                        required
-                                    />
-                                    {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
+                                    <Input id="email" type="email" value={data.email} onChange={(e) => setData('email', e.target.value)} required />
+                                    {errors.email && <p className="text-destructive text-sm">{errors.email}</p>}
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="password">Password</Label>
+                                    <Label htmlFor="password">Password (leave blank to keep current)</Label>
                                     <Input
                                         id="password"
                                         type="password"
                                         value={data.password}
                                         onChange={(e) => setData('password', e.target.value)}
-                                        required
                                     />
-                                    {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
+                                    {errors.password && <p className="text-destructive text-sm">{errors.password}</p>}
                                 </div>
 
                                 <div className="space-y-2">
@@ -95,11 +82,8 @@ export default function UsersCreate({ roles }: Props) {
                                         type="password"
                                         value={data.password_confirmation}
                                         onChange={(e) => setData('password_confirmation', e.target.value)}
-                                        required
                                     />
-                                    {errors.password_confirmation && (
-                                        <p className="text-sm text-destructive">{errors.password_confirmation}</p>
-                                    )}
+                                    {errors.password_confirmation && <p className="text-destructive text-sm">{errors.password_confirmation}</p>}
                                 </div>
 
                                 <div className="space-y-2">
@@ -116,12 +100,12 @@ export default function UsersCreate({ roles }: Props) {
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                    {errors.role && <p className="text-sm text-destructive">{errors.role}</p>}
+                                    {errors.role && <p className="text-destructive text-sm">{errors.role}</p>}
                                 </div>
 
                                 <div className="flex gap-4">
                                     <Button type="submit" disabled={processing}>
-                                        {processing ? 'Creating...' : 'Create User'}
+                                        {processing ? 'Updating...' : 'Update User'}
                                     </Button>
                                     <Button type="button" variant="outline" onClick={() => window.history.back()}>
                                         Cancel

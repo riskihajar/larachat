@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Admin;
+namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -22,7 +22,7 @@ class RoleController extends Controller
 
         $roles = Role::with('permissions')->withCount('users')->get();
 
-        return Inertia::render('admin/roles/index', [
+        return Inertia::render('settings/roles/index', [
             'roles' => $roles,
         ]);
     }
@@ -38,7 +38,7 @@ class RoleController extends Controller
             return explode('.', $permission->name)[0];
         });
 
-        return Inertia::render('admin/roles/create', [
+        return Inertia::render('settings/roles/create', [
             'permissions' => $permissions,
         ]);
     }
@@ -59,7 +59,7 @@ class RoleController extends Controller
         $role = Role::create(['name' => $validated['name']]);
         $role->givePermissionTo($validated['permissions']);
 
-        return redirect()->route('admin.roles.index')
+        return redirect()->route('settings.roles.index')
             ->with('success', 'Role created successfully.');
     }
 
@@ -72,7 +72,7 @@ class RoleController extends Controller
 
         $role->load('permissions', 'users');
 
-        return Inertia::render('admin/roles/show', [
+        return Inertia::render('settings/roles/show', [
             'role' => $role,
         ]);
     }
@@ -89,7 +89,7 @@ class RoleController extends Controller
             return explode('.', $permission->name)[0];
         });
 
-        return Inertia::render('admin/roles/edit', [
+        return Inertia::render('settings/roles/edit', [
             'role' => $role,
             'permissions' => $permissions,
         ]);
@@ -111,7 +111,7 @@ class RoleController extends Controller
         $role->update(['name' => $validated['name']]);
         $role->syncPermissions($validated['permissions']);
 
-        return redirect()->route('admin.roles.index')
+        return redirect()->route('settings.roles.index')
             ->with('success', 'Role updated successfully.');
     }
 
@@ -129,7 +129,7 @@ class RoleController extends Controller
 
         $role->delete();
 
-        return redirect()->route('admin.roles.index')
+        return redirect()->route('settings.roles.index')
             ->with('success', 'Role deleted successfully.');
     }
 }

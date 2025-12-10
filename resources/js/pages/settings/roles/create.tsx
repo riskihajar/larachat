@@ -20,7 +20,7 @@ export default function RolesCreate({ permissions }: Props) {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        post('/admin/roles');
+        post('/settings/roles');
     };
 
     const handlePermissionToggle = (permissionName: string, checked: boolean) => {
@@ -61,12 +61,12 @@ export default function RolesCreate({ permissions }: Props) {
             <Head title="Create Role" />
             <AppSidebarLayout
                 breadcrumbs={[
-                    { title: 'Admin', href: '/admin/users' },
-                    { title: 'Roles', href: '/admin/roles' },
-                    { title: 'Create', href: '/admin/roles/create' },
+                    { title: 'Settings', href: '/settings/users' },
+                    { title: 'Roles', href: '/settings/roles' },
+                    { title: 'Create', href: '/settings/roles/create' },
                 ]}
             >
-                <div className="container mx-auto py-8 px-4">
+                <div className="container mx-auto px-4 py-8">
                     <Card>
                         <CardHeader>
                             <div className="flex items-center gap-4">
@@ -90,12 +90,12 @@ export default function RolesCreate({ permissions }: Props) {
                                         placeholder="manager"
                                         required
                                     />
-                                    {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
+                                    {errors.name && <p className="text-destructive text-sm">{errors.name}</p>}
                                 </div>
 
                                 <div className="space-y-4">
                                     <Label>Permissions</Label>
-                                    {errors.permissions && <p className="text-sm text-destructive">{errors.permissions}</p>}
+                                    {errors.permissions && <p className="text-destructive text-sm">{errors.permissions}</p>}
 
                                     <div className="space-y-4 rounded-lg border p-4">
                                         {Object.entries(permissions).map(([group, groupPermissions]) => (
@@ -104,14 +104,9 @@ export default function RolesCreate({ permissions }: Props) {
                                                     <Checkbox
                                                         id={`group-${group}`}
                                                         checked={isGroupChecked(groupPermissions)}
-                                                        onCheckedChange={(checked) =>
-                                                            handleGroupToggle(groupPermissions, checked as boolean)
-                                                        }
+                                                        onCheckedChange={(checked) => handleGroupToggle(groupPermissions, checked as boolean)}
                                                     />
-                                                    <Label
-                                                        htmlFor={`group-${group}`}
-                                                        className="cursor-pointer font-semibold capitalize"
-                                                    >
+                                                    <Label htmlFor={`group-${group}`} className="cursor-pointer font-semibold capitalize">
                                                         {group}
                                                     </Label>
                                                 </div>

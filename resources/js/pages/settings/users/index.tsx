@@ -13,7 +13,7 @@ interface Props {
 export default function UsersIndex({ users }: Props) {
     const handleDelete = (userId: number) => {
         if (confirm('Are you sure you want to delete this user?')) {
-            router.delete(`/admin/users/${userId}`);
+            router.delete(`/settings/users/${userId}`);
         }
     };
 
@@ -22,11 +22,11 @@ export default function UsersIndex({ users }: Props) {
             <Head title="Manage Users" />
             <AppSidebarLayout
                 breadcrumbs={[
-                    { title: 'Admin', href: '/admin/users' },
-                    { title: 'Users', href: '/admin/users' },
+                    { title: 'Settings', href: '/settings/users' },
+                    { title: 'Users', href: '/settings/users' },
                 ]}
             >
-                <div className="container mx-auto py-8 px-4">
+                <div className="container mx-auto px-4 py-8">
                     <Card>
                         <CardHeader>
                             <div className="flex items-center justify-between">
@@ -34,7 +34,7 @@ export default function UsersIndex({ users }: Props) {
                                     <CardTitle>Users Management</CardTitle>
                                     <CardDescription>Manage user accounts and their roles</CardDescription>
                                 </div>
-                                <Link href="/admin/users/create">
+                                <Link href="/settings/users/create">
                                     <Button>
                                         <Plus className="mr-2 size-4" />
                                         Add User
@@ -60,7 +60,7 @@ export default function UsersIndex({ users }: Props) {
                                             <TableCell>{user.email}</TableCell>
                                             <TableCell>
                                                 {user.roles && user.roles.length > 0 ? (
-                                                    <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
+                                                    <span className="bg-primary/10 text-primary inline-flex items-center rounded-md px-2 py-1 text-xs font-medium">
                                                         {user.roles[0].name}
                                                     </span>
                                                 ) : (
@@ -70,7 +70,7 @@ export default function UsersIndex({ users }: Props) {
                                             <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
                                             <TableCell className="text-right">
                                                 <div className="flex justify-end gap-2">
-                                                    <Link href={`/admin/users/${user.id}/edit`}>
+                                                    <Link href={`/settings/users/${user.id}/edit`}>
                                                         <Button variant="outline" size="sm">
                                                             <Edit className="size-4" />
                                                         </Button>
@@ -85,9 +85,7 @@ export default function UsersIndex({ users }: Props) {
                                 </TableBody>
                             </Table>
 
-                            {users.data.length === 0 && (
-                                <div className="py-8 text-center text-muted-foreground">No users found.</div>
-                            )}
+                            {users.data.length === 0 && <div className="text-muted-foreground py-8 text-center">No users found.</div>}
                         </CardContent>
                     </Card>
                 </div>

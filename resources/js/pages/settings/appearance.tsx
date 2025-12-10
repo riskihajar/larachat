@@ -16,8 +16,10 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 export default function Appearance() {
     return (
-        <AppLayout breadcrumbs={breadcrumbs}
-            className="flex h-[calc(100vh-theme(spacing.4))] flex-col overflow-hidden md:h-[calc(100vh-theme(spacing.8))]">
+        <AppLayout
+            breadcrumbs={breadcrumbs}
+            className="flex h-[calc(100vh-theme(spacing.4))] flex-col overflow-hidden md:h-[calc(100vh-theme(spacing.8))]"
+        >
             <Head title="Appearance settings" />
 
             <SettingsLayout>

@@ -21,7 +21,7 @@ export default function RolesEdit({ role, permissions }: Props) {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        put(`/admin/roles/${role.id}`);
+        put(`/settings/roles/${role.id}`);
     };
 
     const handlePermissionToggle = (permissionName: string, checked: boolean) => {
@@ -62,12 +62,12 @@ export default function RolesEdit({ role, permissions }: Props) {
             <Head title="Edit Role" />
             <AppSidebarLayout
                 breadcrumbs={[
-                    { title: 'Admin', href: '/admin/users' },
-                    { title: 'Roles', href: '/admin/roles' },
-                    { title: 'Edit', href: `/admin/roles/${role.id}/edit` },
+                    { title: 'Settings', href: '/settings/users' },
+                    { title: 'Roles', href: '/settings/roles' },
+                    { title: 'Edit', href: `/settings/roles/${role.id}/edit` },
                 ]}
             >
-                <div className="container mx-auto py-8 px-4">
+                <div className="container mx-auto px-4 py-8">
                     <Card>
                         <CardHeader>
                             <div className="flex items-center gap-4">
@@ -84,18 +84,13 @@ export default function RolesEdit({ role, permissions }: Props) {
                             <form onSubmit={handleSubmit} className="space-y-6">
                                 <div className="space-y-2">
                                     <Label htmlFor="name">Role Name</Label>
-                                    <Input
-                                        id="name"
-                                        value={data.name}
-                                        onChange={(e) => setData('name', e.target.value)}
-                                        required
-                                    />
-                                    {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
+                                    <Input id="name" value={data.name} onChange={(e) => setData('name', e.target.value)} required />
+                                    {errors.name && <p className="text-destructive text-sm">{errors.name}</p>}
                                 </div>
 
                                 <div className="space-y-4">
                                     <Label>Permissions</Label>
-                                    {errors.permissions && <p className="text-sm text-destructive">{errors.permissions}</p>}
+                                    {errors.permissions && <p className="text-destructive text-sm">{errors.permissions}</p>}
 
                                     <div className="space-y-4 rounded-lg border p-4">
                                         {Object.entries(permissions).map(([group, groupPermissions]) => (
@@ -104,14 +99,9 @@ export default function RolesEdit({ role, permissions }: Props) {
                                                     <Checkbox
                                                         id={`group-${group}`}
                                                         checked={isGroupChecked(groupPermissions)}
-                                                        onCheckedChange={(checked) =>
-                                                            handleGroupToggle(groupPermissions, checked as boolean)
-                                                        }
+                                                        onCheckedChange={(checked) => handleGroupToggle(groupPermissions, checked as boolean)}
                                                     />
-                                                    <Label
-                                                        htmlFor={`group-${group}`}
-                                                        className="cursor-pointer font-semibold capitalize"
-                                                    >
+                                                    <Label htmlFor={`group-${group}`} className="cursor-pointer font-semibold capitalize">
                                                         {group}
                                                     </Label>
                                                 </div>

@@ -11,5 +11,4 @@ Route::get('/api/chats', [\App\Http\Controllers\Api\ChatController::class, 'inde
 
 require __DIR__.'/chat.php';
 require __DIR__.'/settings.php';
-require __DIR__.'/admin.php';
 require __DIR__.'/auth.php';
