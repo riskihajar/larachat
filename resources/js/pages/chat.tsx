@@ -1,14 +1,15 @@
 import Conversation from '@/components/conversation';
-import ModelSelector from '@/components/model-selector';
 import SidebarTitleUpdater from '@/components/sidebar-title-updater';
 import TitleGenerator from '@/components/title-generator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupText, InputGroupTextarea } from '@/components/ui/input-group';
+import { Separator } from '@/components/ui/separator';
 import AppLayout from '@/layouts/app-layout';
 import { Head, router, usePage } from '@inertiajs/react';
 import { useStream } from '@laravel/stream-react';
-import { Info } from 'lucide-react';
+import { ArrowUp, Info, Plus, Square } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 type Message = {
@@ -62,16 +63,22 @@ function ChatWithStream({
     // Get initial model selection (format: "provider:model")
     const getInitialModel = () => {
         if (chat?.provider && chat?.model) {
-            return `${chat.provider}:${chat.model}`;
+            const fullModel = `${chat.provider}:${chat.model}`;
+            console.log('Initial model from chat:', fullModel);
+            console.log('Chat provider:', chat.provider, 'Chat model:', chat.model);
+            return fullModel;
         }
         // Fallback to first provider and its first model
         const firstProvider = Object.keys(availableModels)[0];
         const firstModel = Object.keys(availableModels[firstProvider]?.models || {})[0];
-        return `${firstProvider}:${firstModel}`;
+        const fallbackModel = `${firstProvider}:${firstModel}`;
+        console.log('Fallback model:', fallbackModel);
+        return fallbackModel;
     };
 
     const [selectedModel, setSelectedModel] = useState<string>(getInitialModel());
-    const inputRef = useRef<HTMLInputElement>(null);
+    const [inputValue, setInputValue] = useState<string>('');
+    const inputRef = useRef<HTMLTextAreaElement>(null);
 
     const currentChatId = chat?.id || null;
     const streamUrl = currentChatId ? `/chat/${currentChatId}/stream` : '/chat/stream';
@@ -138,9 +145,7 @@ function ChatWithStream({
     const handleSubmit = useCallback(
         (e: FormEvent<HTMLFormElement>) => {
             e.preventDefault();
-            const form = e.currentTarget;
-            const input = form.querySelector('input') as HTMLInputElement;
-            const query = input?.value.trim();
+            const query = inputValue.trim();
 
             if (!query) return;
 
@@ -169,11 +174,27 @@ function ChatWithStream({
                 model: selectedModel,
             });
 
-            input.value = '';
+            setInputValue('');
             inputRef.current?.focus();
         },
-        [send, data, messages, selectedModel],
+        [send, data, messages, selectedModel, inputValue],
     );
+
+    const handleKeyDown = useCallback(
+        (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (inputValue.trim() && !isStreaming && !isFetching) {
+                    handleSubmit(e as any);
+                }
+            }
+        },
+        [inputValue, isStreaming, isFetching, handleSubmit],
+    );
+
+    const handleStop = useCallback(() => {
+        cancel();
+    }, [cancel]);
 
     return (
         <>
@@ -238,27 +259,79 @@ function ChatWithStream({
 
                 <div className="bg-background flex-shrink-0 border-t">
                     <div className="mx-auto max-w-3xl p-4">
-                        <div className="mb-4">
-                            <ModelSelector
-                                availableModels={availableModels}
-                                currentModel={selectedModel}
-                                onChange={setSelectedModel}
-                                disabled={isStreaming || isFetching}
-                            />
-                        </div>
                         <form onSubmit={handleSubmit}>
-                            <div className="flex gap-2">
-                                <Input
+                            <InputGroup>
+                                <InputGroupTextarea
                                     ref={inputRef}
-                                    type="text"
-                                    placeholder="Type a message..."
-                                    className="flex-1"
+                                    placeholder="Ask, Search or Chat..."
+                                    value={inputValue}
+                                    onChange={(e) => setInputValue(e.target.value)}
+                                    onKeyDown={handleKeyDown}
                                     disabled={isStreaming || isFetching}
                                 />
-                                <Button type="submit" disabled={isStreaming || isFetching}>
-                                    Send
-                                </Button>
-                            </div>
+                                <InputGroupAddon align="block-end">
+                                    <InputGroupButton variant="outline" className="rounded-full" size="icon-xs">
+                                        <Plus />
+                                    </InputGroupButton>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <InputGroupButton variant="ghost" className="font-normal">
+                                                {(() => {
+                                                    if (!selectedModel || !selectedModel.includes(':')) {
+                                                        return 'Select Model';
+                                                    }
+
+                                                    // Split only at first colon to handle model keys with colons (e.g., AWS Bedrock)
+                                                    const colonIndex = selectedModel.indexOf(':');
+                                                    const provider = selectedModel.substring(0, colonIndex);
+                                                    const modelKey = selectedModel.substring(colonIndex + 1);
+
+                                                    const providerData = availableModels[provider];
+
+                                                    if (!providerData) {
+                                                        console.log('Provider not found:', provider, 'Available:', Object.keys(availableModels));
+                                                        return 'Select Model';
+                                                    }
+
+                                                    const modelLabel = providerData.models[modelKey];
+
+                                                    if (!modelLabel) {
+                                                        console.log('Model not found:', modelKey, 'Available:', Object.keys(providerData.models));
+                                                        return providerData.label;
+                                                    }
+
+                                                    return `${providerData.label}: ${modelLabel}`;
+                                                })()}
+                                            </InputGroupButton>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent side="top" align="start" className="[--radius:0.95rem]">
+                                            {Object.entries(availableModels).flatMap(([provider, { label, models }]) =>
+                                                Object.entries(models).map(([modelKey, modelLabel]) => (
+                                                    <DropdownMenuItem
+                                                        key={`${provider}:${modelKey}`}
+                                                        onClick={() => setSelectedModel(`${provider}:${modelKey}`)}
+                                                    >
+                                                        {modelLabel}
+                                                    </DropdownMenuItem>
+                                                )),
+                                            )}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                    <InputGroupText className="ml-auto">{inputValue.length} chars</InputGroupText>
+                                    <Separator orientation="vertical" className="!h-4" />
+                                    <InputGroupButton
+                                        variant={isStreaming ? 'destructive' : 'default'}
+                                        className="rounded-full"
+                                        size="icon-xs"
+                                        disabled={!isStreaming && (!inputValue.trim() || isFetching)}
+                                        onClick={isStreaming ? handleStop : undefined}
+                                        type={isStreaming ? 'button' : 'submit'}
+                                    >
+                                        {isStreaming ? <Square /> : <ArrowUp />}
+                                        <span className="sr-only">{isStreaming ? 'Stop' : 'Send'}</span>
+                                    </InputGroupButton>
+                                </InputGroupAddon>
+                            </InputGroup>
                         </form>
                     </div>
                 </div>
