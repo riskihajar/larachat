@@ -28,6 +28,14 @@
                 "mcp-remote",
                 "https://registry.ai-sdk.dev/api/mcp"
             ]
+        },
+        "shadcn": {
+            "type": "local",
+            "command": [
+                "npx",
+                "shadcn@latest",
+                "mcp"
+            ]
         }
     },
 }
