@@ -9,5 +9,25 @@
                 "boost:mcp"
             ],
         },
+        "context7": {
+            "type": "local",
+            "command": [
+                "npx",
+                "-y",
+                "@upstash/context7-mcp",
+                "--api-key",
+                "ctx7sk-ae69282c-e8d3-4ed3-a1b9-ea9f109b260e"
+            ],
+            "enabled": true
+        },
+        "ai-elements": {
+            "type": "local",
+            "command": [
+                "npx",
+                "-y",
+                "mcp-remote",
+                "https://registry.ai-sdk.dev/api/mcp"
+            ]
+        }
     },
 }
