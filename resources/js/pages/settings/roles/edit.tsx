@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppSidebarLayout from '@/layouts/app/app-sidebar-layout';
 import type { Permission, Role } from '@/types';
-import { Head, useForm } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import { ArrowLeft } from 'lucide-react';
 
 interface Props {
@@ -57,6 +57,11 @@ export default function RolesEdit({ role, permissions }: Props) {
         return groupPermissions.every((perm) => data.permissions.includes(perm.name));
     };
 
+    const isGroupIndeterminate = (groupPermissions: Permission[]) => {
+        const checkedCount = groupPermissions.filter((perm) => data.permissions.includes(perm.name)).length;
+        return checkedCount > 0 && checkedCount < groupPermissions.length;
+    };
+
     return (
         <>
             <Head title="Edit Role" />
@@ -67,76 +72,102 @@ export default function RolesEdit({ role, permissions }: Props) {
                     { title: 'Edit', href: `/settings/roles/${role.id}/edit` },
                 ]}
             >
-                <div className="container mx-auto px-4 py-8">
-                    <Card>
-                        <CardHeader>
-                            <div className="flex items-center gap-4">
-                                <Button variant="ghost" size="sm" onClick={() => window.history.back()}>
-                                    <ArrowLeft className="size-4" />
-                                </Button>
-                                <div>
-                                    <CardTitle>Edit Role</CardTitle>
-                                    <CardDescription>Update role information and permissions</CardDescription>
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <form onSubmit={handleSubmit} className="space-y-6">
-                                <div className="space-y-2">
-                                    <Label htmlFor="name">Role Name</Label>
-                                    <Input id="name" value={data.name} onChange={(e) => setData('name', e.target.value)} required />
-                                    {errors.name && <p className="text-destructive text-sm">{errors.name}</p>}
-                                </div>
-
-                                <div className="space-y-4">
-                                    <Label>Permissions</Label>
-                                    {errors.permissions && <p className="text-destructive text-sm">{errors.permissions}</p>}
-
-                                    <div className="space-y-4 rounded-lg border p-4">
-                                        {Object.entries(permissions).map(([group, groupPermissions]) => (
-                                            <div key={group} className="space-y-3">
-                                                <div className="flex items-center space-x-2 border-b pb-2">
-                                                    <Checkbox
-                                                        id={`group-${group}`}
-                                                        checked={isGroupChecked(groupPermissions)}
-                                                        onCheckedChange={(checked) => handleGroupToggle(groupPermissions, checked as boolean)}
-                                                    />
-                                                    <Label htmlFor={`group-${group}`} className="cursor-pointer font-semibold capitalize">
-                                                        {group}
-                                                    </Label>
-                                                </div>
-                                                <div className="ml-6 grid grid-cols-2 gap-3 md:grid-cols-3">
-                                                    {groupPermissions.map((permission) => (
-                                                        <div key={permission.id} className="flex items-center space-x-2">
-                                                            <Checkbox
-                                                                id={permission.name}
-                                                                checked={data.permissions.includes(permission.name)}
-                                                                onCheckedChange={(checked) =>
-                                                                    handlePermissionToggle(permission.name, checked as boolean)
-                                                                }
-                                                            />
-                                                            <Label htmlFor={permission.name} className="cursor-pointer text-sm">
-                                                                {permission.name.split('.').slice(1).join('.')}
-                                                            </Label>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        ))}
+                <div className="container mx-auto max-w-2xl px-4 py-8">
+                    <div className="border-border/70 rounded-xl border p-1">
+                        <Card className="bg-muted/20 rounded-lg">
+                            <CardHeader>
+                                <div className="flex items-center gap-4">
+                                    <Link href="/settings/roles">
+                                        <Button variant="ghost" size="icon" className="size-8">
+                                            <ArrowLeft className="size-4" />
+                                        </Button>
+                                    </Link>
+                                    <div>
+                                        <CardTitle>Edit Role</CardTitle>
+                                        <CardDescription>Update role information and permissions</CardDescription>
                                     </div>
                                 </div>
+                            </CardHeader>
+                            <CardContent>
+                                <form onSubmit={handleSubmit} className="space-y-6">
+                                    {/* Role Name Section */}
+                                    <fieldset className="rounded-lg border p-4">
+                                        <legend className="text-muted-foreground px-2 text-sm font-medium">Role Details</legend>
+                                        <div className="grid grid-cols-[120px_1fr] items-center gap-4">
+                                            <Label htmlFor="name" className="text-right">
+                                                Role Name
+                                            </Label>
+                                            <div className="space-y-1">
+                                                <Input id="name" value={data.name} onChange={(e) => setData('name', e.target.value)} required />
+                                                {errors.name && <p className="text-destructive text-sm">{errors.name}</p>}
+                                            </div>
+                                        </div>
+                                    </fieldset>
 
-                                <div className="flex gap-4">
-                                    <Button type="submit" disabled={processing}>
-                                        {processing ? 'Updating...' : 'Update Role'}
-                                    </Button>
-                                    <Button type="button" variant="outline" onClick={() => window.history.back()}>
-                                        Cancel
-                                    </Button>
-                                </div>
-                            </form>
-                        </CardContent>
-                    </Card>
+                                    {/* Permissions Section */}
+                                    <fieldset className="rounded-lg border p-4">
+                                        <legend className="text-muted-foreground px-2 text-sm font-medium">Permissions</legend>
+                                        {errors.permissions && <p className="text-destructive mb-3 text-sm">{errors.permissions}</p>}
+
+                                        <div className="space-y-4">
+                                            {Object.entries(permissions).map(([group, groupPermissions]) => (
+                                                <div key={group} className="rounded-md border">
+                                                    <div className="bg-muted/50 flex items-center gap-3 border-b px-4 py-2">
+                                                        <Checkbox
+                                                            id={`group-${group}`}
+                                                            checked={isGroupChecked(groupPermissions)}
+                                                            ref={(el) => {
+                                                                if (el) {
+                                                                    (el as unknown as HTMLInputElement).indeterminate =
+                                                                        isGroupIndeterminate(groupPermissions);
+                                                                }
+                                                            }}
+                                                            onCheckedChange={(checked) => handleGroupToggle(groupPermissions, checked as boolean)}
+                                                        />
+                                                        <Label htmlFor={`group-${group}`} className="cursor-pointer font-semibold capitalize">
+                                                            {group}
+                                                        </Label>
+                                                        <span className="text-muted-foreground text-xs">
+                                                            ({groupPermissions.filter((p) => data.permissions.includes(p.name)).length}/
+                                                            {groupPermissions.length})
+                                                        </span>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3">
+                                                        {groupPermissions.map((permission) => (
+                                                            <div key={permission.id} className="flex items-center gap-2">
+                                                                <Checkbox
+                                                                    id={permission.name}
+                                                                    checked={data.permissions.includes(permission.name)}
+                                                                    onCheckedChange={(checked) =>
+                                                                        handlePermissionToggle(permission.name, checked as boolean)
+                                                                    }
+                                                                />
+                                                                <Label htmlFor={permission.name} className="cursor-pointer text-sm">
+                                                                    {permission.name.split('.').pop()}
+                                                                </Label>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </fieldset>
+
+                                    {/* Actions */}
+                                    <div className="flex gap-3 pt-2">
+                                        <Button type="submit" disabled={processing}>
+                                            {processing ? 'Updating...' : 'Update Role'}
+                                        </Button>
+                                        <Link href="/settings/roles">
+                                            <Button type="button" variant="outline">
+                                                Cancel
+                                            </Button>
+                                        </Link>
+                                    </div>
+                                </form>
+                            </CardContent>
+                        </Card>
+                    </div>
                 </div>
             </AppSidebarLayout>
         </>

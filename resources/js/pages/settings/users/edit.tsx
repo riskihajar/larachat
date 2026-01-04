@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppSidebarLayout from '@/layouts/app/app-sidebar-layout';
 import type { Role, User } from '@/types';
-import { Head, useForm } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import { ArrowLeft } from 'lucide-react';
 
 interface Props {
@@ -37,83 +37,131 @@ export default function UsersEdit({ user, roles }: Props) {
                     { title: 'Edit', href: `/settings/users/${user.id}/edit` },
                 ]}
             >
-                <div className="container mx-auto px-4 py-8">
-                    <Card>
-                        <CardHeader>
-                            <div className="flex items-center gap-4">
-                                <Button variant="ghost" size="sm" onClick={() => window.history.back()}>
-                                    <ArrowLeft className="size-4" />
-                                </Button>
-                                <div>
-                                    <CardTitle>Edit User</CardTitle>
-                                    <CardDescription>Update user information and role</CardDescription>
+                <div className="container mx-auto max-w-2xl px-4 py-8">
+                    <div className="border-border/70 rounded-xl border p-1">
+                        <Card className="bg-muted/20 rounded-lg">
+                            <CardHeader>
+                                <div className="flex items-center gap-4">
+                                    <Link href="/settings/users">
+                                        <Button variant="ghost" size="icon" className="size-8">
+                                            <ArrowLeft className="size-4" />
+                                        </Button>
+                                    </Link>
+                                    <div>
+                                        <CardTitle>Edit User</CardTitle>
+                                        <CardDescription>Update user information and role</CardDescription>
+                                    </div>
                                 </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <form onSubmit={handleSubmit} className="space-y-6">
-                                <div className="space-y-2">
-                                    <Label htmlFor="name">Name</Label>
-                                    <Input id="name" value={data.name} onChange={(e) => setData('name', e.target.value)} required />
-                                    {errors.name && <p className="text-destructive text-sm">{errors.name}</p>}
-                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <form onSubmit={handleSubmit} className="space-y-6">
+                                    {/* Basic Information Section */}
+                                    <fieldset className="rounded-lg border p-4">
+                                        <legend className="text-muted-foreground px-2 text-sm font-medium">Basic Information</legend>
+                                        <div className="space-y-4">
+                                            <div className="grid grid-cols-[120px_1fr] items-center gap-4">
+                                                <Label htmlFor="name" className="text-right">
+                                                    Name
+                                                </Label>
+                                                <div className="space-y-1">
+                                                    <Input id="name" value={data.name} onChange={(e) => setData('name', e.target.value)} required />
+                                                    {errors.name && <p className="text-destructive text-sm">{errors.name}</p>}
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-[120px_1fr] items-center gap-4">
+                                                <Label htmlFor="email" className="text-right">
+                                                    Email
+                                                </Label>
+                                                <div className="space-y-1">
+                                                    <Input
+                                                        id="email"
+                                                        type="email"
+                                                        value={data.email}
+                                                        onChange={(e) => setData('email', e.target.value)}
+                                                        required
+                                                    />
+                                                    {errors.email && <p className="text-destructive text-sm">{errors.email}</p>}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </fieldset>
 
-                                <div className="space-y-2">
-                                    <Label htmlFor="email">Email</Label>
-                                    <Input id="email" type="email" value={data.email} onChange={(e) => setData('email', e.target.value)} required />
-                                    {errors.email && <p className="text-destructive text-sm">{errors.email}</p>}
-                                </div>
+                                    {/* Security Section */}
+                                    <fieldset className="rounded-lg border p-4">
+                                        <legend className="text-muted-foreground px-2 text-sm font-medium">Security</legend>
+                                        <p className="text-muted-foreground mb-4 text-xs">
+                                            Leave password fields blank to keep the current password.
+                                        </p>
+                                        <div className="space-y-4">
+                                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="password">New Password</Label>
+                                                    <Input
+                                                        id="password"
+                                                        type="password"
+                                                        value={data.password}
+                                                        onChange={(e) => setData('password', e.target.value)}
+                                                        placeholder="Enter new password"
+                                                    />
+                                                    {errors.password && <p className="text-destructive text-sm">{errors.password}</p>}
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="password_confirmation">Confirm Password</Label>
+                                                    <Input
+                                                        id="password_confirmation"
+                                                        type="password"
+                                                        value={data.password_confirmation}
+                                                        onChange={(e) => setData('password_confirmation', e.target.value)}
+                                                        placeholder="Confirm new password"
+                                                    />
+                                                    {errors.password_confirmation && (
+                                                        <p className="text-destructive text-sm">{errors.password_confirmation}</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </fieldset>
 
-                                <div className="space-y-2">
-                                    <Label htmlFor="password">Password (leave blank to keep current)</Label>
-                                    <Input
-                                        id="password"
-                                        type="password"
-                                        value={data.password}
-                                        onChange={(e) => setData('password', e.target.value)}
-                                    />
-                                    {errors.password && <p className="text-destructive text-sm">{errors.password}</p>}
-                                </div>
+                                    {/* Role Assignment Section */}
+                                    <fieldset className="rounded-lg border p-4">
+                                        <legend className="text-muted-foreground px-2 text-sm font-medium">Role Assignment</legend>
+                                        <div className="grid grid-cols-[120px_1fr] items-center gap-4">
+                                            <Label htmlFor="role" className="text-right">
+                                                Role
+                                            </Label>
+                                            <div className="space-y-1">
+                                                <Select value={data.role} onValueChange={(value) => setData('role', value)} required>
+                                                    <SelectTrigger id="role">
+                                                        <SelectValue placeholder="Select a role" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {roles.map((role) => (
+                                                            <SelectItem key={role.id} value={role.name}>
+                                                                {role.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                {errors.role && <p className="text-destructive text-sm">{errors.role}</p>}
+                                            </div>
+                                        </div>
+                                    </fieldset>
 
-                                <div className="space-y-2">
-                                    <Label htmlFor="password_confirmation">Confirm Password</Label>
-                                    <Input
-                                        id="password_confirmation"
-                                        type="password"
-                                        value={data.password_confirmation}
-                                        onChange={(e) => setData('password_confirmation', e.target.value)}
-                                    />
-                                    {errors.password_confirmation && <p className="text-destructive text-sm">{errors.password_confirmation}</p>}
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label htmlFor="role">Role</Label>
-                                    <Select value={data.role} onValueChange={(value) => setData('role', value)} required>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select a role" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {roles.map((role) => (
-                                                <SelectItem key={role.id} value={role.name}>
-                                                    {role.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    {errors.role && <p className="text-destructive text-sm">{errors.role}</p>}
-                                </div>
-
-                                <div className="flex gap-4">
-                                    <Button type="submit" disabled={processing}>
-                                        {processing ? 'Updating...' : 'Update User'}
-                                    </Button>
-                                    <Button type="button" variant="outline" onClick={() => window.history.back()}>
-                                        Cancel
-                                    </Button>
-                                </div>
-                            </form>
-                        </CardContent>
-                    </Card>
+                                    {/* Actions */}
+                                    <div className="flex gap-3 pt-2">
+                                        <Button type="submit" disabled={processing}>
+                                            {processing ? 'Updating...' : 'Update User'}
+                                        </Button>
+                                        <Link href="/settings/users">
+                                            <Button type="button" variant="outline">
+                                                Cancel
+                                            </Button>
+                                        </Link>
+                                    </div>
+                                </form>
+                            </CardContent>
+                        </Card>
+                    </div>
                 </div>
             </AppSidebarLayout>
         </>
