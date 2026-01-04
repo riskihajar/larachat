@@ -1,34 +1,36 @@
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Appearance, useAppearance } from '@/hooks/use-appearance';
 import { cn } from '@/lib/utils';
-import { LucideIcon, Monitor, Moon, Sun } from 'lucide-react';
-import { HTMLAttributes } from 'react';
+import { Monitor, Moon, Sun } from 'lucide-react';
 
-export default function AppearanceToggleTab({ className = '', ...props }: HTMLAttributes<HTMLDivElement>) {
+interface AppearanceToggleTabProps {
+    className?: string;
+}
+
+export default function AppearanceToggleTab({ className }: AppearanceToggleTabProps) {
     const { appearance, updateAppearance } = useAppearance();
 
-    const tabs: { value: Appearance; icon: LucideIcon; label: string }[] = [
+    const tabs: { value: Appearance; icon: typeof Sun; label: string }[] = [
         { value: 'light', icon: Sun, label: 'Light' },
         { value: 'dark', icon: Moon, label: 'Dark' },
         { value: 'system', icon: Monitor, label: 'System' },
     ];
 
     return (
-        <div className={cn('inline-flex gap-1 rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800', className)} {...props}>
-            {tabs.map(({ value, icon: Icon, label }) => (
-                <button
-                    key={value}
-                    onClick={() => updateAppearance(value)}
-                    className={cn(
-                        'flex items-center rounded-md px-3.5 py-1.5 transition-colors',
-                        appearance === value
-                            ? 'bg-white shadow-xs dark:bg-neutral-700 dark:text-neutral-100'
-                            : 'text-neutral-500 hover:bg-neutral-200/60 hover:text-black dark:text-neutral-400 dark:hover:bg-neutral-700/60',
-                    )}
-                >
-                    <Icon className="-ml-1 h-4 w-4" />
-                    <span className="ml-1.5 text-sm">{label}</span>
-                </button>
-            ))}
-        </div>
+        <Tabs
+            value={appearance}
+            onValueChange={(value) => updateAppearance(value as Appearance)}
+            orientation="vertical"
+            className={cn('w-full', className)}
+        >
+            <TabsList className="flex h-auto w-full flex-col items-stretch gap-1 bg-transparent p-0">
+                {tabs.map(({ value, icon: Icon, label }) => (
+                    <TabsTrigger key={value} value={value} className="data-[state=active]:bg-muted justify-start gap-2 px-3 py-2">
+                        <Icon className="size-4" />
+                        <span>{label}</span>
+                    </TabsTrigger>
+                ))}
+            </TabsList>
+        </Tabs>
     );
 }
