@@ -263,28 +263,45 @@ Mcp::web('/mcp/datetime', DateTimeServer::class);
 // Mcp::local('datetime', DateTimeServer::class);
 ```
 
-## 4. Testing
+## 4. Timezone Parameters
 
-### Using MCP Inspector
+All tools now support timezone parameters for user-specific timezone handling:
 
-```bash
-php artisan mcp:inspector /mcp/datetime
-```
+### Timezone Parameter Support
 
-### Example Tool Calls
+| Tool                         | Timezone Parameter             | Default                        | Description                                    |
+| ---------------------------- | ------------------------------ | ------------------------------ | ---------------------------------------------- |
+| `get-current-date-time-tool` | `timezone`                     | Server timezone                | Get current datetime in specific timezone      |
+| `get-timezone-info-tool`     | `timezone`                     | Server timezone                | Get timezone information for specific timezone |
+| `convert-timezone-tool`      | `from_timezone`, `to_timezone` | From: Server timezone, To: UTC | Convert between timezones                      |
+
+### Example Tool Calls with Timezone Support
 
 ```json
 {
-    "tool": "get-current-datetime",
-    "arguments": {}
+    "tool": "get-current-date-time-tool",
+    "arguments": {
+        "timezone": "Asia/Makassar"
+    }
 }
 ```
 
 ```json
 {
-    "tool": "convert-timezone",
+    "tool": "get-timezone-info-tool",
     "arguments": {
-        "target_timezone": "America/New_York"
+        "timezone": "America/New_York"
+    }
+}
+```
+
+```json
+{
+    "tool": "convert-timezone-tool",
+    "arguments": {
+        "datetime": "2026-01-04 12:00:00",
+        "from_timezone": "UTC",
+        "to_timezone": "Asia/Makassar"
     }
 }
 ```
@@ -298,83 +315,159 @@ php artisan mcp:inspector /mcp/datetime
 }
 ```
 
-## 5. Expected Responses
+## 5. Testing
 
-### Get Current DateTime Response
+### Using MCP Inspector
+
+```bash
+php artisan mcp:inspector /mcp/datetime
+```
+
+## 6. Expected Responses
+
+### Get Current DateTime Response (with timezone)
 
 ```json
 {
-    "datetime": "2024-01-15 14:30:45 EST",
-    "date": "2024-01-15",
-    "time": "14:30:45",
-    "timestamp": 1705331445,
+    "datetime": "2026-01-04 20:21:02 WITA",
+    "date": "2026-01-04",
+    "time": "20:21:02",
+    "timestamp": 1767529262,
     "timezone": {
-        "name": "America/New_York",
-        "offset": -18000,
-        "abbr": "EST"
+        "name": "Asia/Makassar",
+        "offset": 28800,
+        "abbr": "WITA"
     },
-    "iso_8601": "2024-01-15T14:30:45-05:00"
+    "iso_8601": "2026-01-04T12:21:02.078688Z",
+    "requested_timezone": "Asia/Makassar",
+    "server_timezone": "UTC"
 }
 ```
 
-### Convert Timezone Response
+### Get Timezone Info Response (with timezone)
 
 ```json
 {
+    "requested_timezone": "Asia/Makassar",
+    "server_timezone": "UTC",
+    "timezone_info": {
+        "name": "Asia/Makassar",
+        "offset": 28800,
+        "abbr": "WITA",
+        "dst": false
+    },
+    "config": {
+        "timezone": "UTC"
+    },
+    "current_time": {
+        "datetime": "2026-01-04 20:21:03 WITA",
+        "date": "2026-01-04",
+        "time": "20:21:03",
+        "iso_8601": "2026-01-04T12:21:03.762479Z"
+    }
+}
+```
+
+### Convert Timezone Response (enhanced)
+
+```json
+{
+    "input": {
+        "datetime": "2026-01-04 12:00:00",
+        "from_timezone": "UTC",
+        "to_timezone": "Asia/Makassar"
+    },
     "original": {
-        "datetime": "2024-01-15 14:30:45 EST",
-        "timezone": "America/New_York"
+        "datetime": "2026-01-04 20:00:00",
+        "timezone": "UTC",
+        "offset": 28800,
+        "abbr": "WITA",
+        "iso_8601": "2026-01-04T20:00:00+08:00"
     },
     "converted": {
-        "datetime": "2024-01-15 19:30:45 GMT",
-        "timezone": "Europe/London",
-        "utc_offset": 0
+        "datetime": "2026-01-04 20:00:00",
+        "timezone": "Asia/Makassar",
+        "offset": 28800,
+        "abbr": "WITA",
+        "iso_8601": "2026-01-04T20:00:00+08:00"
     },
-    "iso_8601": "2024-01-15T19:30:45+00:00"
+    "conversion_info": {
+        "timezone_difference": 8,
+        "dst_affected": false,
+        "successful": true
+    }
 }
 ```
 
-## 6. Features
+## 7. Features
 
 ✅ **Web Server** - Accessible via HTTP POST  
 ✅ **Timezone Conversion** - Full timezone conversion support  
+✅ **Timezone Parameters** - Support for user-specific timezone requests  
+✅ **Server vs User Timezone** - Distinguish between server and requested timezones  
 ✅ **Multiple Formats** - Flexible date/time formatting  
 ✅ **ISO 8601 Support** - Standard datetime formats  
-✅ **Timezone Listing** - Browse available timezones  
-✅ **Structured Responses** - Parseable JSON output
+✅ **Timezone Listing** - Browse available timezones (419 timezones)  
+✅ **Structured Responses** - Parseable JSON output  
+✅ **Error Handling** - Graceful handling of invalid timezones  
+✅ **Language Agnostic** - Raw data for LLM to format responses
 
-## 7. Client Integration Example
+## 8. Client Integration Example
 
 ```javascript
-// Example MCP client usage
+// Example MCP client usage for Indonesian user queries
+// User asks: "tanggal berapa sekarang?" (what's today's date?)
+// LLM determines user is in Makassar timezone and calls:
+
 const response = await mcpClient.callTool({
-    name: 'convert-timezone',
+    name: 'get-current-date-time-tool',
     arguments: {
-        target_timezone: 'Asia/Jakarta',
-        format: 'F j, Y g:i:s A T',
+        timezone: 'Asia/Makassar',
     },
 });
 
+// LLM formats response: "Hari ini tanggal 4 Januari 2026"
 console.log(response.content[0].text);
 ```
 
-## Troubleshooting
+```javascript
+// Timezone conversion example
+const response = await mcpClient.callTool({
+    name: 'convert-timezone-tool',
+    arguments: {
+        datetime: '2026-01-04 12:00:00',
+        from_timezone: 'UTC',
+        to_timezone: 'Asia/Makassar',
+    },
+});
+```
+
+## 9. Troubleshooting
 
 ### Common Issues:
 
 1. **Route not found** - Ensure `routes/ai.php` is loaded
 2. **Tool not found** - Check class names and namespaces
 3. **Response format** - Ensure tools return `Response::json()`
+4. **Invalid timezone** - Check timezone identifier format (e.g., "Asia/Makassar")
+5. **Server vs User time** - Remember server timezone defaults to UTC
 
 ### Debug Steps:
 
 1. Check server registration: `php artisan mcp:inspector /mcp/datetime`
 2. Verify tool availability: Tools list should show 4 tools
 3. Test individual tools with sample requests
+4. Test timezone parameters:
+    ```bash
+    curl -X POST "http://localhost:8000/mcp/datetime" \
+      -H "Content-Type: application/json" \
+      -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get-current-date-time-tool","arguments":{"timezone":"Asia/Makassar"}}}'
+    ```
 
-## Next Steps
+## 10. Next Steps
 
 1. **Schema Validation** - Add input/output schemas for better validation
-2. **Error Handling** - Enhanced error messages and validation
-3. **Performance** - Add caching for timezone lists
-4. **Extended Features** - Date calculations, business days, etc.
+2. **Caching** - Add caching for timezone lists and conversions
+3. **Performance** - Optimize timezone calculations
+4. **Extended Features** - Date calculations, business days, recurring events
+5. **Localization** - Add support for different date formats per locale

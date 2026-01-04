@@ -24,20 +24,38 @@ class GetTimezoneInfoTool extends Tool
      */
     public function handle(Request $request): Response
     {
-        $timezone = Date::now()->timezone;
+        $requestedTimezone = $request->get('timezone');
+        $defaultTimezone = 'Asia/Makassar';
+        $targetTimezone = $requestedTimezone ?? $defaultTimezone;
 
-        $response = [
-            'app_timezone' => [
-                'name' => $timezone->getName(),
-                'offset' => $timezone->getOffset(Date::now()),
-                'abbr' => Date::now()->format('T'),
-            ],
-            'config' => [
-                'timezone' => config('app.timezone'),
-            ],
-        ];
+        try {
+            $now = Date::now()->timezone($targetTimezone);
+            $timezone = $now->timezone;
 
-        return Response::json($response);
+            $response = [
+                'requested_timezone' => $targetTimezone,
+                'server_timezone' => $defaultTimezone,
+                'timezone_info' => [
+                    'name' => $timezone->getName(),
+                    'offset' => $timezone->getOffset($now),
+                    'abbr' => $now->format('T'),
+                    'dst' => $now->isDST(),
+                ],
+                'config' => [
+                    'timezone' => $defaultTimezone,
+                ],
+                'current_time' => [
+                    'datetime' => $now->format('Y-m-d H:i:s T'),
+                    'date' => $now->format('Y-m-d'),
+                    'time' => $now->format('H:i:s'),
+                    'iso_8601' => $now->toISOString(),
+                ],
+            ];
+
+            return Response::json($response);
+        } catch (\Exception $e) {
+            return Response::text('Error: Invalid timezone provided. Error: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -47,6 +65,9 @@ class GetTimezoneInfoTool extends Tool
      */
     public function schema(JsonSchema $schema): array
     {
-        return [];
+        return [
+            'timezone' => $schema->string()
+                ->description('Optional timezone identifier (e.g., "Asia/Makassar", "UTC", "America/New_York"). If not provided, defaults to Asia/Makassar timezone.'),
+        ];
     }
 }
