@@ -3,16 +3,15 @@ import { Transition } from '@headlessui/react';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { FormEventHandler } from 'react';
 
+import { store as verificationSendStore } from '@/actions/App/Http/Controllers/Auth/EmailVerificationNotificationController';
+import { update as profileUpdate } from '@/actions/App/Http/Controllers/Settings/ProfileController';
 import DeleteUser from '@/components/delete-user';
 import HeadingSmall from '@/components/heading-small';
-import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
+import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
-import { update as profileUpdate } from '@/actions/App/Http/Controllers/Settings/ProfileController';
-import { store as verificationSendStore } from '@/actions/App/Http/Controllers/Auth/EmailVerificationNotificationController';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -54,42 +53,40 @@ export default function Profile({ mustVerifyEmail, status }: { mustVerifyEmail: 
                     <HeadingSmall title="Profile information" description="Update your name and email address" />
 
                     <form onSubmit={submit} className="space-y-6">
-                        <div className="grid gap-2">
-                            <Label htmlFor="name">Name</Label>
+                        <FieldGroup className="gap-4">
+                            <Field data-invalid={!!errors.name}>
+                                <FieldLabel htmlFor="name">Name</FieldLabel>
+                                <Input
+                                    id="name"
+                                    value={data.name}
+                                    onChange={(e) => setData('name', e.target.value)}
+                                    required
+                                    autoComplete="name"
+                                    placeholder="Full name"
+                                    aria-invalid={!!errors.name}
+                                />
+                                {errors.name && <FieldError>{errors.name}</FieldError>}
+                            </Field>
 
-                            <Input
-                                id="name"
-                                className="mt-1 block w-full"
-                                value={data.name}
-                                onChange={(e) => setData('name', e.target.value)}
-                                required
-                                autoComplete="name"
-                                placeholder="Full name"
-                            />
-
-                            <InputError className="mt-2" message={errors.name} />
-                        </div>
-
-                        <div className="grid gap-2">
-                            <Label htmlFor="email">Email address</Label>
-
-                            <Input
-                                id="email"
-                                type="email"
-                                className="mt-1 block w-full"
-                                value={data.email}
-                                onChange={(e) => setData('email', e.target.value)}
-                                required
-                                autoComplete="username"
-                                placeholder="Email address"
-                            />
-
-                            <InputError className="mt-2" message={errors.email} />
-                        </div>
+                            <Field data-invalid={!!errors.email}>
+                                <FieldLabel htmlFor="email">Email address</FieldLabel>
+                                <Input
+                                    id="email"
+                                    type="email"
+                                    value={data.email}
+                                    onChange={(e) => setData('email', e.target.value)}
+                                    required
+                                    autoComplete="username"
+                                    placeholder="Email address"
+                                    aria-invalid={!!errors.email}
+                                />
+                                {errors.email && <FieldError>{errors.email}</FieldError>}
+                            </Field>
+                        </FieldGroup>
 
                         {mustVerifyEmail && auth.user.email_verified_at === null && (
                             <div>
-                                <p className="text-muted-foreground -mt-4 text-sm">
+                                <p className="text-muted-foreground text-sm">
                                     Your email address is unverified.{' '}
                                     <Link
                                         href={verificationSendStore().url}

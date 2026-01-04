@@ -1,4 +1,3 @@
-import InputError from '@/components/input-error';
 import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 import { type BreadcrumbItem } from '@/types';
@@ -6,11 +5,11 @@ import { Transition } from '@headlessui/react';
 import { Head, useForm } from '@inertiajs/react';
 import { FormEventHandler, useRef } from 'react';
 
+import { update as passwordUpdate } from '@/actions/App/Http/Controllers/Settings/PasswordController';
 import HeadingSmall from '@/components/heading-small';
 import { Button } from '@/components/ui/button';
+import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { update as passwordUpdate } from '@/actions/App/Http/Controllers/Settings/PasswordController';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -61,55 +60,51 @@ export default function Password() {
                     <HeadingSmall title="Update password" description="Ensure your account is using a long, random password to stay secure" />
 
                     <form onSubmit={updatePassword} className="space-y-6">
-                        <div className="grid gap-2">
-                            <Label htmlFor="current_password">Current password</Label>
+                        <FieldGroup className="gap-4">
+                            <Field data-invalid={!!errors.current_password}>
+                                <FieldLabel htmlFor="current_password">Current password</FieldLabel>
+                                <Input
+                                    id="current_password"
+                                    ref={currentPasswordInput}
+                                    value={data.current_password}
+                                    onChange={(e) => setData('current_password', e.target.value)}
+                                    type="password"
+                                    autoComplete="current-password"
+                                    placeholder="Current password"
+                                    aria-invalid={!!errors.current_password}
+                                />
+                                {errors.current_password && <FieldError>{errors.current_password}</FieldError>}
+                            </Field>
 
-                            <Input
-                                id="current_password"
-                                ref={currentPasswordInput}
-                                value={data.current_password}
-                                onChange={(e) => setData('current_password', e.target.value)}
-                                type="password"
-                                className="mt-1 block w-full"
-                                autoComplete="current-password"
-                                placeholder="Current password"
-                            />
+                            <Field data-invalid={!!errors.password}>
+                                <FieldLabel htmlFor="password">New password</FieldLabel>
+                                <Input
+                                    id="password"
+                                    ref={passwordInput}
+                                    value={data.password}
+                                    onChange={(e) => setData('password', e.target.value)}
+                                    type="password"
+                                    autoComplete="new-password"
+                                    placeholder="New password"
+                                    aria-invalid={!!errors.password}
+                                />
+                                {errors.password && <FieldError>{errors.password}</FieldError>}
+                            </Field>
 
-                            <InputError message={errors.current_password} />
-                        </div>
-
-                        <div className="grid gap-2">
-                            <Label htmlFor="password">New password</Label>
-
-                            <Input
-                                id="password"
-                                ref={passwordInput}
-                                value={data.password}
-                                onChange={(e) => setData('password', e.target.value)}
-                                type="password"
-                                className="mt-1 block w-full"
-                                autoComplete="new-password"
-                                placeholder="New password"
-                            />
-
-                            <InputError message={errors.password} />
-                        </div>
-
-                        <div className="grid gap-2">
-                            <Label htmlFor="password_confirmation">Confirm password</Label>
-
-                            <Input
-                                id="password_confirmation"
-                                value={data.password_confirmation}
-                                onChange={(e) => setData('password_confirmation', e.target.value)}
-                                type="password"
-                                className="mt-1 block w-full"
-                                autoComplete="new-password"
-                                placeholder="Confirm password"
-                            />
-
-                            <InputError message={errors.password_confirmation} />
-                        </div>
+                            <Field data-invalid={!!errors.password_confirmation}>
+                                <FieldLabel htmlFor="password_confirmation">Confirm password</FieldLabel>
+                                <Input
+                                    id="password_confirmation"
+                                    value={data.password_confirmation}
+                                    onChange={(e) => setData('password_confirmation', e.target.value)}
+                                    type="password"
+                                    autoComplete="new-password"
+                                    placeholder="Confirm password"
+                                    aria-invalid={!!errors.password_confirmation}
+                                />
+                                {errors.password_confirmation && <FieldError>{errors.password_confirmation}</FieldError>}
+                            </Field>
+                        </FieldGroup>
 
                         <div className="flex items-center gap-4">
                             <Button disabled={processing}>Save password</Button>
