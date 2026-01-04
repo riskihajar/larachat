@@ -155,7 +155,10 @@ class ChatController extends Controller
             }
         }
 
-        $provider = LLMProviderFactory::make($providerName, $modelName);
+        // Enable tools for OpenAI provider
+        if ($providerName === 'openai') {
+            $provider = $provider->withTools();
+        }
 
         return response()->stream(function () use ($request, $chat, $provider) {
             // Disable ALL output buffering layers
@@ -167,6 +170,7 @@ class ChatController extends Controller
             set_time_limit(0);
 
             $messages = $request->input('messages', []);
+            $userTimezone = $request->input('timezone', 'Asia/Makassar');
 
             if (empty($messages)) {
                 return;
@@ -185,19 +189,35 @@ class ChatController extends Controller
                 }
             }
 
-            // Stream response using provider
+            // Stream response using provider with tools if available
             $fullResponse = '';
+            $userContext = ['timezone' => $userTimezone];
 
             try {
-                foreach ($provider->stream($messages) as $chunk) {
-                    $fullResponse .= $chunk;
+                // Use streaming with tools if provider supports it
+                if (method_exists($provider, 'streamWithTools')) {
+                    foreach ($provider->streamWithTools($messages, $userContext) as $chunk) {
+                        $fullResponse .= $chunk;
 
-                    // Send chunk immediately
-                    echo $chunk;
+                        // Send chunk immediately
+                        echo $chunk;
 
-                    // Aggressive flushing
-                    @ob_flush();
-                    @flush();
+                        // Aggressive flushing
+                        @ob_flush();
+                        @flush();
+                    }
+                } else {
+                    // Fallback to regular streaming
+                    foreach ($provider->stream($messages) as $chunk) {
+                        $fullResponse .= $chunk;
+
+                        // Send chunk immediately
+                        echo $chunk;
+
+                        // Aggressive flushing
+                        @ob_flush();
+                        @flush();
+                    }
                 }
             } catch (\Exception $e) {
                 \Log::error('LLM streaming error', [
