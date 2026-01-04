@@ -2,25 +2,31 @@ import Heading from '@/components/heading';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
+import { KeyRound, LucideIcon, Palette, User } from 'lucide-react';
 import { type PropsWithChildren } from 'react';
+
+interface NavItem {
+    title: string;
+    href: string;
+    icon: LucideIcon;
+}
 
 const sidebarNavItems: NavItem[] = [
     {
         title: 'Profile',
         href: '/settings/profile',
-        icon: null,
+        icon: User,
     },
     {
         title: 'Password',
         href: '/settings/password',
-        icon: null,
+        icon: KeyRound,
     },
     {
         title: 'Appearance',
         href: '/settings/appearance',
-        icon: null,
+        icon: Palette,
     },
 ];
 
@@ -51,7 +57,8 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                                         : 'text-neutral-500 hover:bg-neutral-200/60 hover:text-black dark:text-neutral-400 dark:hover:bg-neutral-700/60',
                                 )}
                             >
-                                {item.title}
+                                <item.icon className="-ml-1 size-4" />
+                                <span className="ml-1.5">{item.title}</span>
                             </Link>
                         ))}
                     </nav>
