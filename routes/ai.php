@@ -14,7 +14,7 @@ use Laravel\Mcp\Facades\Mcp;
 */
 
 // Web Server - Accessible via HTTP POST
-Mcp::web('/mcp/datetime', DateTimeServer::class);
+Mcp::web('mcp/datetime', DateTimeServer::class);
 
 // Local Server - Run as Artisan command
-// Mcp::local('datetime', DateTimeServer::class);
+Mcp::local('datetime', DateTimeServer::class);

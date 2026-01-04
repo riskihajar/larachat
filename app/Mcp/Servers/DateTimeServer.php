@@ -2,6 +2,10 @@
 
 namespace App\Mcp\Servers;
 
+use App\Mcp\Tools\GetCurrentDateTimeTool;
+use App\Mcp\Tools\GetTimezoneInfoTool;
+use App\Mcp\Tools\ConvertTimezoneTool;
+use App\Mcp\Tools\ListTimezonesTool;
 use Laravel\Mcp\Server;
 
 class DateTimeServer extends Server
@@ -26,7 +30,12 @@ class DateTimeServer extends Server
      *
      * @var array<int, class-string<\Laravel\Mcp\Server\Tool>>
      */
-    public array $tools = [];
+    public array $tools = [
+        GetCurrentDateTimeTool::class,
+        GetTimezoneInfoTool::class,
+        ConvertTimezoneTool::class,
+        ListTimezonesTool::class,
+    ];
 
     /**
      * The resources registered with this MCP server.
