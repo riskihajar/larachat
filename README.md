@@ -33,19 +33,22 @@ Watch the complete tutorial on YouTube:
 Before getting started, ensure your system meets these requirements:
 
 ### Required
+
 - **PHP 8.2 or higher** with the following extensions:
-  - curl, dom, fileinfo, filter, hash, mbstring, openssl, pcre, pdo, session, tokenizer, xml
+    - curl, dom, fileinfo, filter, hash, mbstring, openssl, pcre, pdo, session, tokenizer, xml
 - **Node.js 22 or higher** (for React 19 support)
 - **Composer 2.x**
 - **SQLite** (default database, or MySQL/PostgreSQL if preferred)
 - **Git** (for cloning the repository)
 
 ### Optional but Recommended
+
 - **OpenAI API Key** (for GPT models)
 - **AWS Bedrock credentials** (for Claude models via AWS Bedrock)
 - **PHP development server** or **Laravel Valet** for local development
 
 ### Framework Versions Used
+
 - **Laravel 12.0** (latest)
 - **React 19** (latest)
 - **Tailwind CSS v4** (beta)
@@ -72,11 +75,13 @@ php artisan key:generate
 3. Configure your AI provider credentials in `.env`:
 
 **For OpenAI (GPT models):**
+
 ```env
 OPENAI_API_KEY=your-api-key-here
 ```
 
 **For AWS Bedrock (Claude models):**
+
 ```env
 BEDROCK_AWS_ACCESS_KEY_ID=your-access-key
 BEDROCK_AWS_SECRET_ACCESS_KEY=your-secret-key
@@ -85,6 +90,7 @@ BEDROCK_MODEL=anthropic.claude-sonnet-4-20250514-v1:0
 ```
 
 **Set default provider:**
+
 ```env
 LLM_DEFAULT_PROVIDER=openai  # or 'bedrock'
 ```
@@ -97,40 +103,65 @@ composer dev
 ```
 
 > **Note**: The `composer dev` command runs multiple processes concurrently (server, queue, logs, and Vite). If you encounter issues, run each command separately in different terminals:
+>
 > ```bash
 > # Terminal 1: Laravel server
 > php artisan serve
-> 
+>
 > # Terminal 2: Queue worker (for background jobs)
 > php artisan queue:listen
-> 
+>
 > # Terminal 3: Vite development server
 > npm run dev
 > ```
+
+## Documentation
+
+All technical documentation is located in the [`docs/`](docs/) directory.
+
+| Document                                                                            | Description                                                                                 |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| [TECHNICAL_BRIEF.md](docs/TECHNICAL_BRIEF.md)                                       | Comprehensive technical brief - architecture, code conventions, API reference, git workflow |
+| [AWS_BEDROCK_STREAMING.md](docs/AWS_BEDROCK_STREAMING.md)                           | Custom AWS Bedrock streaming implementation                                                 |
+| [BEDROCK_APIS_EXPLAINED.md](docs/BEDROCK_APIS_EXPLAINED.md)                         | AWS Bedrock API explanation                                                                 |
+| [BEDROCK_IMPLEMENTATIONS_COMPARISON.md](docs/BEDROCK_IMPLEMENTATIONS_COMPARISON.md) | Comparison of Bedrock streaming approaches                                                  |
+
+### For AI Coding Assistants
+
+These files provide guidelines for AI assistants and must remain in the project root:
+
+- `AGENTS.md` - General AI assistant guidelines
+- `CLAUDE.md` - Claude Code specific
+- `GEMINI.md` - Gemini specific
 
 ## Troubleshooting
 
 ### Common Setup Issues
 
 **"Node.js version too old" error:**
+
 - Ensure you have Node.js 22+ installed
 - Use `nvm` to manage Node.js versions: `nvm install 22 && nvm use 22`
 
 **"Class 'OpenAI' not found" error:**
+
 - Run `composer install` to ensure all PHP dependencies are installed
 - Check that your `OPENAI_API_KEY` is set in `.env` (or leave it empty for mock responses)
 
 **Database connection errors:**
+
 - The default setup uses SQLite - ensure the `database/database.sqlite` file exists
 - If it's missing, create it with: `touch database/database.sqlite`
 - Then run: `php artisan migrate`
 
 **Vite build errors with Tailwind CSS v4:**
+
 - Clear your npm cache: `npm cache clean --force`
 - Delete `node_modules` and reinstall: `rm -rf node_modules && npm install`
 - Ensure you're using Node.js 22+
 
 **"CSRF token mismatch" for streaming:**
+
 - Ensure the CSRF meta tag is present in your layout (already included in this demo)
 - Clear browser cache and cookies for the local development domain
 
@@ -157,7 +188,7 @@ function Chat() {
 
         // Send all messages to the stream
         send({ messages: [...messages, newMessage] });
-        
+
         e.target.reset();
     };
 
@@ -167,10 +198,10 @@ function Chat() {
             {messages.map((msg, i) => (
                 <div key={i}>{msg.content}</div>
             ))}
-            
+
             {/* Show streaming response */}
             {data && <div>{data}</div>}
-            
+
             {/* Input form */}
             <form onSubmit={handleSubmit}>
                 <input name="query" disabled={isStreaming} />
@@ -197,7 +228,7 @@ public function stream(Request $request)
 {
     return response()->stream(function () use ($request) {
         $messages = $request->input('messages', []);
-        
+
         // Stream response from OpenAI
         $stream = OpenAI::chat()->createStreamed([
             'model' => 'gpt-4',
@@ -233,9 +264,10 @@ import { useEventStream } from '@laravel/stream-react';
 
 function TitleGenerator({ chatId, onTitleUpdate, onComplete }) {
     const { message } = useEventStream(`/chat/${chatId}/title-stream`, {
-        eventName: "title-update",  // Use 'eventName', not 'event'
-        endSignal: "</stream>",
-        onMessage: (event) => {      // Receives MessageEvent object
+        eventName: 'title-update', // Use 'eventName', not 'event'
+        endSignal: '</stream>',
+        onMessage: (event) => {
+            // Receives MessageEvent object
             try {
                 const parsed = JSON.parse(event.data);
                 if (parsed.title) {
@@ -264,15 +296,15 @@ You can have multiple components listening to the same EventStream for different
 
 ```tsx
 // Component 1: Updates conversation title
-<TitleGenerator 
+<TitleGenerator
     chatId={chat.id}
     onTitleUpdate={setConversationTitle}
     onComplete={() => setShouldGenerateTitle(false)}
 />
 
-// Component 2: Updates sidebar 
+// Component 2: Updates sidebar
 <SidebarTitleUpdater
-    chatId={chat.id} 
+    chatId={chat.id}
     onComplete={() => setShouldUpdateSidebar(false)}
 />
 ```
@@ -297,15 +329,15 @@ public function titleStream(Chat $chat)
             );
             return;
         }
-        
+
         // Generate title using OpenAI
         $firstMessage = $chat->messages()->where('type', 'prompt')->first();
-        
+
         $response = OpenAI::chat()->create([
             'model' => 'gpt-4o-mini',
             'messages' => [
                 [
-                    'role' => 'system', 
+                    'role' => 'system',
                     'content' => 'Generate a concise, descriptive title (max 50 characters) for a chat that starts with the following message. Respond with only the title, no quotes or extra formatting.'
                 ],
                 ['role' => 'user', 'content' => $firstMessage->content]
@@ -322,7 +354,7 @@ public function titleStream(Chat $chat)
             event: 'title-update',
             data: json_encode(['title' => $title])
         );
-        
+
     }, endStreamWith: new StreamedEvent(event: 'title-update', data: '</stream>'));
 }
 ```
@@ -339,7 +371,7 @@ Route::middleware('auth')->group(function () {
 #### How It Works
 
 1. **User sends first message** → AI response streams back via `useStream`
-2. **Response completes** → Triggers EventStream for title generation  
+2. **Response completes** → Triggers EventStream for title generation
 3. **Server generates title** → Uses OpenAI to create descriptive title
 4. **EventStream sends update** → Both conversation header and sidebar update in real-time
 5. **Components unmount** → Clean up after receiving title
@@ -371,24 +403,20 @@ import { DropdownMenu } from '@/components/ui/dropdown-menu';
     <InputGroupTextarea placeholder="Ask, Search or Chat..." />
     <InputGroupAddon align="block-end">
         <DropdownMenu>
-            <DropdownMenuTrigger>
-                AWS Bedrock: Claude Sonnet 4.5
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-                {/* All available models grouped by provider */}
-            </DropdownMenuContent>
+            <DropdownMenuTrigger>AWS Bedrock: Claude Sonnet 4.5</DropdownMenuTrigger>
+            <DropdownMenuContent>{/* All available models grouped by provider */}</DropdownMenuContent>
         </DropdownMenu>
         <InputGroupText>52 chars</InputGroupText>
         <InputGroupButton>Send</InputGroupButton>
     </InputGroupAddon>
-</InputGroup>
+</InputGroup>;
 ```
 
 ### Supported Providers & Models
 
-| Provider | Available Models | Streaming |
-|----------|-----------------|-----------|
-| **OpenAI** | GPT-4o, GPT-4o Mini, GPT-4 Turbo, GPT-4, GPT-3.5 Turbo | ✅ Native SDK |
+| Provider        | Available Models                                                          | Streaming               |
+| --------------- | ------------------------------------------------------------------------- | ----------------------- |
+| **OpenAI**      | GPT-4o, GPT-4o Mini, GPT-4 Turbo, GPT-4, GPT-3.5 Turbo                    | ✅ Native SDK           |
 | **AWS Bedrock** | Claude Sonnet 4.5, Claude Sonnet 3.7, Claude Sonnet 3.5, Claude Haiku 3.5 | ✅ Custom Binary Parser |
 
 ### AWS Bedrock Implementation
@@ -401,6 +429,7 @@ AWS Bedrock required a custom streaming implementation due to the AWS SDK PHP's 
 4. **Progressive Yielding** - Each chunk is sent to the browser immediately
 
 **Key Technical Achievement:**
+
 ```php
 // AWS returns base64-encoded JSON in binary event stream
 $chunk = json_decode($payload, true);
@@ -436,6 +465,7 @@ The model field stores the full model identifier (e.g., `us.anthropic.claude-son
 To add a new LLM provider:
 
 1. Create a class implementing `LLMProviderInterface`:
+
 ```php
 namespace App\Services\LLM\Providers;
 
@@ -477,6 +507,7 @@ class YourProvider implements LLMProviderInterface
 ```
 
 2. Register in `LLMProviderFactory`:
+
 ```php
 public static function make(?string $provider = null, ?string $model = null): LLMProviderInterface
 {
@@ -493,6 +524,7 @@ public static function make(?string $provider = null, ?string $model = null): LL
 ```
 
 3. Add configuration to `config/llm.php`:
+
 ```php
 'providers' => [
     'openai' => 'OpenAI',
@@ -568,6 +600,7 @@ If you're familiar with Inertia.js, you might wonder why we need to handle CSRF 
 ### Inertia Forms vs Stream Endpoints
 
 **Inertia Forms** use the `useForm` helper:
+
 ```tsx
 // Standard Inertia approach - CSRF handled automatically
 const form = useForm({ message: '' });
@@ -575,6 +608,7 @@ form.post('/chat'); // Returns an Inertia response
 ```
 
 **Stream Endpoints** require manual CSRF handling:
+
 ```tsx
 // Streaming approach - needs CSRF token
 const { send } = useStream('/chat/stream'); // This is a POST to an API endpoint
@@ -589,14 +623,16 @@ const { send } = useStream('/chat/stream'); // This is a POST to an API endpoint
 ### Setting Up CSRF for Streams
 
 Add the CSRF meta tag to your layout:
+
 ```blade
 <meta name="csrf-token" content="{{ csrf_token() }}">
 ```
 
 The `useStream` hook automatically reads this token, or you can provide it explicitly:
+
 ```tsx
 const { send } = useStream('/chat/stream', {
-    csrfToken: document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+    csrfToken: document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'),
 });
 ```
 
@@ -605,27 +641,33 @@ This separation actually gives you more flexibility - you can have both traditio
 ## Learn More
 
 ### Official Resources
+
 - [Laravel Stream Documentation](https://github.com/laravel/stream)
 - [Server-Sent Events in Laravel](https://laravel.com/docs/responses#event-streams)
 - [OpenAI PHP Client](https://github.com/openai-php/client)
 
 ### Multi-Provider Implementation
+
 - [Prism by Echo Labs](https://prism.echolabs.dev/) - Laravel package for AI integration (supports multiple providers)
 - [AWS Bedrock Documentation](https://docs.aws.amazon.com/bedrock/)
 - [AWS Event Stream Encoding](https://docs.aws.amazon.com/lexv2/latest/dg/event-stream-encoding.html)
 
 ### This Fork's Documentation
+
 - **[AWS_BEDROCK_STREAMING.md](docs/AWS_BEDROCK_STREAMING.md)** - Complete guide to AWS Bedrock streaming implementation
 
 ## Credits
 
 ### Original Project
+
 This is a fork of [Laravel Chat Demo](https://github.com/laravel/larachat) by the Laravel team, which demonstrates the `useStream` hook for React applications.
 
 ### Multi-Provider & UI Enhancements
+
 Multi-provider architecture, modern UI components, and ULID implementation by [@riskihajar](https://github.com/riskihajar).
 
 **Key contributions:**
+
 - Interface-based provider abstraction with per-chat model selection
 - AWS Bedrock binary event stream parser for real-time streaming
 - Modern chat interface with shadcn/ui InputGroup components
