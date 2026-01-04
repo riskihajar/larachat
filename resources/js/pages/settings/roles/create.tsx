@@ -71,7 +71,7 @@ export default function RolesCreate({ permissions }: Props) {
                     { title: 'Create', href: '/settings/roles/create' },
                 ]}
             >
-                <div className="container mx-auto max-w-2xl px-4 py-8">
+                <div className="max-w-2xl px-4 py-8">
                     <div className="border-border/70 rounded-xl border p-1">
                         <Card className="bg-muted/20 rounded-lg">
                             <CardHeader>
@@ -93,9 +93,7 @@ export default function RolesCreate({ permissions }: Props) {
                                     <fieldset className="rounded-lg border p-4">
                                         <legend className="text-muted-foreground px-2 text-sm font-medium">Role Details</legend>
                                         <div className="grid grid-cols-[120px_1fr] items-center gap-4">
-                                            <Label htmlFor="name" className="text-right">
-                                                Role Name
-                                            </Label>
+                                            <Label htmlFor="name">Role Name</Label>
                                             <div className="space-y-1">
                                                 <Input
                                                     id="name"

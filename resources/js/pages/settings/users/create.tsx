@@ -36,7 +36,7 @@ export default function UsersCreate({ roles }: Props) {
                     { title: 'Create', href: '/settings/users/create' },
                 ]}
             >
-                <div className="container mx-auto max-w-2xl px-4 py-8">
+                <div className="max-w-2xl px-4 py-8">
                     <div className="border-border/70 rounded-xl border p-1">
                         <Card className="bg-muted/20 rounded-lg">
                             <CardHeader>
@@ -59,9 +59,7 @@ export default function UsersCreate({ roles }: Props) {
                                         <legend className="text-muted-foreground px-2 text-sm font-medium">Basic Information</legend>
                                         <div className="space-y-4">
                                             <div className="grid grid-cols-[120px_1fr] items-center gap-4">
-                                                <Label htmlFor="name" className="text-right">
-                                                    Name
-                                                </Label>
+                                                <Label htmlFor="name">Name</Label>
                                                 <div className="space-y-1">
                                                     <Input
                                                         id="name"
@@ -74,9 +72,7 @@ export default function UsersCreate({ roles }: Props) {
                                                 </div>
                                             </div>
                                             <div className="grid grid-cols-[120px_1fr] items-center gap-4">
-                                                <Label htmlFor="email" className="text-right">
-                                                    Email
-                                                </Label>
+                                                <Label htmlFor="email">Email</Label>
                                                 <div className="space-y-1">
                                                     <Input
                                                         id="email"
@@ -129,9 +125,7 @@ export default function UsersCreate({ roles }: Props) {
                                     <fieldset className="rounded-lg border p-4">
                                         <legend className="text-muted-foreground px-2 text-sm font-medium">Role Assignment</legend>
                                         <div className="grid grid-cols-[120px_1fr] items-center gap-4">
-                                            <Label htmlFor="role" className="text-right">
-                                                Role
-                                            </Label>
+                                            <Label htmlFor="role">Role</Label>
                                             <div className="space-y-1">
                                                 <Select value={data.role} onValueChange={(value) => setData('role', value)} required>
                                                     <SelectTrigger id="role">
