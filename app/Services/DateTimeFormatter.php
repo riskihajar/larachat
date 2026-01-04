@@ -4,8 +4,33 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use OpenAI\Laravel\Facades\OpenAI;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
+
 class DateTimeFormatter
 {
+    private array $datetimePatterns = [
+        "What time is it now",
+        "What's the current time",
+        "What date is today", 
+        "What day is today",
+        "Current date and time",
+        "Timezone information",
+        "Convert time between timezones",
+        "Jam berapa sekarang",
+        "Tanggal berapa hari ini",
+        "Hari apa ini sekarang",
+        "Waktu saat ini",
+        "Konversi zona waktu",
+        "Informasi timezone",
+        "Jam berapa di Jakarta",
+        "Sekarang jam berapa",
+        "Tanggal hari ini",
+        "Waktu sekarang"
+    ];
+
+    private array $patternEmbeddings = [];
     /**
      * Format tool result into conversational Indonesian response.
      */
@@ -180,9 +205,81 @@ class DateTimeFormatter
     }
 
     /**
-     * Check if a message is likely a datetime query.
+     * Check if a message is likely a datetime query using LLM reasoning.
      */
     public function isDateTimeQuery(string $message): bool
+    {
+        // Fast keyword check first (performance optimization)
+        if ($this->keywordMatch($message)) {
+            return true;
+        }
+
+        // Use LLM reasoning for better accuracy
+        return $this->reasoningMatch($message);
+    }
+
+    /**
+     * Use LLM reasoning to determine if message is datetime-related.
+     */
+    private function reasoningMatch(string $message): bool
+    {
+        // Skip if no API key (fallback to enhanced patterns)
+        if (!$this->isOpenAIAvailable()) {
+            return $this->enhancedPatternMatch($message);
+        }
+
+        try {
+            // Use LLM to classify the intent
+            $response = OpenAI::chat()->create([
+                'model' => 'gpt-4o-mini', // Fast and cheap for classification
+                'messages' => [
+                    [
+                        'role' => 'system',
+                        'content' => 'You are a datetime query classifier. Classify if the user message is asking about time, date, timezone, or datetime-related information. Respond with only "YES" or "NO". Examples: "What time is it?" = YES, "Hello" = NO, "Tell me the date" = YES, "How is the weather" = NO'
+                    ],
+                    [
+                        'role' => 'user',
+                        'content' => $message
+                    ]
+                ],
+                'max_tokens' => 5,
+                'temperature' => 0
+            ]);
+
+            $classification = trim(strtolower($response->choices[0]->message->content));
+            
+            Log::debug('LLM datetime classification', [
+                'message' => $message,
+                'classification' => $classification
+            ]);
+
+            return $classification === 'yes';
+            
+        } catch (\Exception $e) {
+            Log::warning('LLM reasoning failed, falling back to patterns', [
+                'error' => $e->getMessage(),
+                'message' => $message
+            ]);
+            
+            // Fallback to enhanced patterns
+            return $this->enhancedPatternMatch($message);
+        }
+    }
+
+    /**
+     * Check if OpenAI API is available and configured.
+     */
+    private function isOpenAIAvailable(): bool
+    {
+        return !app()->environment('testing') && 
+               config('openai.api_key') && 
+               !empty(config('openai.api_key'));
+    }
+
+    /**
+     * Traditional keyword matching (fallback).
+     */
+    private function keywordMatch(string $message): bool
     {
         $datetimeKeywords = [
             'tanggal', 'waktu', 'jam', 'sekarang', 'hari', 'hari ini', 'besok', 'kemarin',
@@ -200,6 +297,162 @@ class DateTimeFormatter
         }
 
         return false;
+    }
+
+    /**
+     * Enhanced pattern matching without embeddings (fallback).
+     */
+    private function enhancedPatternMatch(string $message): bool
+    {
+        $enhancedPatterns = [
+            // Time patterns
+            '/\b(time|jam|waktu)\b.*\b(now|sekarang|current|saat ini)\b/i',
+            '/\b(now|saat ini|sekarang)\b.*\b(time|jam|waktu)\b/i',
+            
+            // Date patterns  
+            '/\b(date|tanggal)\b.*\b(today|hari ini|sekarang)\b/i',
+            '/\b(today|hari ini)\b.*\b(date|tanggal)\b/i',
+            
+            // Day patterns
+            '/\b(day|hari)\b.*\b(today|sekarang|ini)\b/i',
+            '/\b(what.*day|hari.*apa)\b/i',
+            
+            // Timezone patterns
+            '/\b(timezone|zona waktu)\b.*\b(info|information|informasi)\b/i',
+            '/\b(info|informasi)\b.*\b(timezone|zona waktu)\b/i',
+            '/\b(timezone|zona waktu)\b.*\b(what|apa|which)\b/i',
+            
+            // Conversion patterns
+            '/\b(convert|konversi)\b.*\b(time|timezone|waktu)\b/i',
+            '/\b(time|timezone|waktu)\b.*\b(convert|konversi)\b/i',
+            
+            // Location + time patterns
+            '/\b(what.*time|time.*what)\b.*\b(in|di)\b.*\b(jakarta|makassar|bandung|surabaya|medan)\b/i',
+            '/\b(jam.*berapa|what.*time)\b.*\b(di|in)\b.*\b(jakarta|makassar|bandung|surabaya|medan)\b/i',
+        ];
+
+        foreach ($enhancedPatterns as $pattern) {
+            if (preg_match($pattern, $message)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Semantic similarity matching using OpenAI embeddings.
+     */
+    private function semanticMatch(string $message): bool
+    {
+        try {
+            // Get embedding for the user message
+            $queryEmbedding = $this->getEmbedding($message);
+            
+            // Initialize patterns if not already done
+            if (empty($this->patternEmbeddings)) {
+                $this->initializePatternEmbeddings();
+            }
+
+            // If patterns failed to initialize, fall back
+            if (empty($this->patternEmbeddings)) {
+                return $this->enhancedPatternMatch($message);
+            }
+
+            // Find most similar pattern
+            $maxSimilarity = 0;
+            foreach ($this->patternEmbeddings as $pattern => $embedding) {
+                $similarity = $this->cosineSimilarity($queryEmbedding, $embedding);
+                $maxSimilarity = max($maxSimilarity, $similarity);
+                
+                // Early exit if we find a very high similarity
+                if ($similarity > 0.85) {
+                    return true;
+                }
+            }
+
+            // Return true if similarity is above threshold
+            return $maxSimilarity > 0.75;
+            
+        } catch (\Exception $e) {
+            Log::warning('Semantic matching failed, falling back to enhanced patterns', [
+                'error' => $e->getMessage(),
+                'message' => $message
+            ]);
+            
+            // Fallback to enhanced pattern matching
+            return $this->enhancedPatternMatch($message);
+        }
+    }
+
+    /**
+     * Get embedding for a text using OpenAI.
+     */
+    private function getEmbedding(string $text): array
+    {
+        $response = OpenAI::embeddings()->create([
+            'model' => 'text-embedding-3-small',
+            'input' => $text
+        ]);
+
+        return $response->embeddings[0]->embedding;
+    }
+
+    /**
+     * Initialize embeddings for predefined datetime patterns.
+     */
+    private function initializePatternEmbeddings(): void
+    {
+        // Check cache first
+        $cachedEmbeddings = Cache::get('datetime_pattern_embeddings');
+        if ($cachedEmbeddings) {
+            $this->patternEmbeddings = $cachedEmbeddings;
+            return;
+        }
+
+        try {
+            $response = OpenAI::embeddings()->create([
+                'model' => 'text-embedding-3-small',
+                'input' => $this->datetimePatterns
+            ]);
+
+            foreach ($response->embeddings as $index => $embedding) {
+                $this->patternEmbeddings[$this->datetimePatterns[$index]] = $embedding->embedding;
+            }
+
+            // Cache for 1 hour
+            Cache::put('datetime_pattern_embeddings', $this->patternEmbeddings, 3600);
+            
+        } catch (\Exception $e) {
+            Log::error('Failed to initialize pattern embeddings', [
+                'error' => $e->getMessage()
+            ]);
+            // If embeddings fail, patterns remain empty and semantic matching will be skipped
+        }
+    }
+
+    /**
+     * Calculate cosine similarity between two vectors.
+     */
+    private function cosineSimilarity(array $vecA, array $vecB): float
+    {
+        $dotProduct = 0;
+        $normA = 0;
+        $normB = 0;
+
+        for ($i = 0; $i < count($vecA); $i++) {
+            $dotProduct += $vecA[$i] * $vecB[$i];
+            $normA += $vecA[$i] * $vecA[$i];
+            $normB += $vecB[$i] * $vecB[$i];
+        }
+
+        $magnitude = sqrt($normA) * sqrt($normB);
+        
+        if ($magnitude == 0) {
+            return 0;
+        }
+
+        return $dotProduct / $magnitude;
     }
 
     /**
