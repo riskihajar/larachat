@@ -10,10 +10,121 @@ use Illuminate\Support\Facades\Log;
 class McpClient
 {
     private string $baseUrl;
+    private ?array $cachedTools = null;
 
     public function __construct()
     {
         $this->baseUrl = config('app.url') . '/mcp/datetime';
+    }
+
+    /**
+     * Get all available tools from MCP server (dynamic discovery).
+     */
+    public function getAvailableTools(): array
+    {
+        if ($this->cachedTools !== null) {
+            return $this->cachedTools;
+        }
+
+        try {
+            $response = Http::timeout(10)->post($this->baseUrl, [
+                'jsonrpc' => '2.0',
+                'id' => now()->timestamp,
+                'method' => 'tools/list',
+                'params' => []
+            ]);
+
+            if ($response->successful()) {
+                $result = $response->json();
+                $this->cachedTools = $result['result']['tools'] ?? [];
+                return $this->cachedTools;
+            }
+        } catch (\Exception $e) {
+            Log::warning('Failed to discover MCP tools', ['error' => $e->getMessage()]);
+        }
+
+        return [];
+    }
+
+    /**
+     * Convert MCP tool schema to OpenAI function schema format.
+     */
+    public function convertToOpenAIFunctionSchema(array $mcpTool): array
+    {
+        $inputSchema = $mcpTool['inputSchema'] ?? [];
+        $properties = $inputSchema['properties'] ?? [];
+        $required = $inputSchema['required'] ?? [];
+
+        // Convert MCP properties to OpenAI format
+        $openaiProperties = [];
+        if (is_array($properties)) {
+            foreach ($properties as $name => $property) {
+                if (!is_array($property)) continue;
+
+                $openaiProperties[$name] = [
+                    'type' => $property['type'] ?? 'string',
+                    'description' => $property['description'] ?? '',
+                ];
+
+                // Handle defaults
+                if (isset($property['default'])) {
+                    $openaiProperties[$name]['default'] = $property['default'];
+                }
+
+                // Handle enums
+                if (isset($property['enum']) && is_array($property['enum'])) {
+                    $openaiProperties[$name]['enum'] = $property['enum'];
+                }
+            }
+        }
+
+        // Convert tool name: remove '-tool' suffix and convert to snake_case
+        $functionName = $this->convertToOpenAIFunctionName($mcpTool['name']);
+
+
+
+        return [
+            'type' => 'function',
+            'function' => [
+                'name' => $functionName,
+                'description' => $mcpTool['description'] ?? '',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => $openaiProperties,
+                    ...(count($required) > 0 ? ['required' => $required] : []),
+                ]
+            ]
+        ];
+    }
+
+    /**
+     * Convert MCP tool name to OpenAI function name format.
+     */
+    private function convertToOpenAIFunctionName(string $mcpToolName): string
+    {
+        // Remove '-tool' suffix
+        $name = preg_replace('/-tool$/', '', $mcpToolName);
+
+        // Convert kebab-case to snake_case
+        $name = str_replace('-', '_', $name);
+
+        return $name;
+    }
+
+    /**
+     * Get reverse mapping from OpenAI function name back to MCP tool name.
+     */
+    public function getMcpToolNameFromFunction(string $functionName): string
+    {
+        // Convert snake_case back to kebab-case and add '-tool' suffix
+        $mcpName = str_replace('_', '-', $functionName);
+
+        // Only add -tool suffix if it doesn't already have it
+        if (!str_ends_with($mcpName, '-tool')) {
+            $mcpName .= '-tool';
+        }
+
+        return $mcpName;
     }
 
     /**
