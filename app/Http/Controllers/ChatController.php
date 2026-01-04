@@ -6,7 +6,6 @@ use App\Models\Chat;
 use App\Services\LLM\LLMProviderFactory;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
-use Illuminate\Http\StreamedEvent;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
@@ -285,10 +284,10 @@ class ChatController extends Controller
         return response()->stream(function () use ($chat) {
             // If title is already set and not "Untitled", send it immediately
             if ($chat->title && $chat->title !== 'Untitled') {
-                yield new StreamedEvent(
-                    event: 'title-update',
-                    data: json_encode(['title' => $chat->title])
-                );
+                echo "event: title-update\n";
+                echo "data: " . json_encode(['title' => $chat->title]) . "\n\n";
+                @ob_flush();
+                @flush();
 
                 return;
             }
