@@ -78,127 +78,101 @@ class ToolCoordinator
         $targetTimezone = $extractedTimezone ?? $userTimezone;
 
         // Use LLM to intelligently select the best tool
-        $toolSelection = $this->llmSelectTool($message, $targetTimezone);
-        $toolName = $toolSelection['tool_name'];
-        $arguments = $this->buildArguments($toolName, $message, $targetTimezone);
+        try {
+            $toolSelection = $this->llmSelectTool($message, $targetTimezone);
+            $toolName = $toolSelection['tool_name'];
+            $arguments = $this->buildArguments($toolName, $message, $targetTimezone);
 
-        return [
-            'needs_tool' => true,
-            'tool_name' => $toolName,
-            'arguments' => $arguments,
-            'timezone' => $targetTimezone,
-            'message' => $message,
-            'selection_reason' => $toolSelection['reason'] ?? null
-        ];
+            return [
+                'needs_tool' => true,
+                'tool_name' => $toolName,
+                'arguments' => $arguments,
+                'timezone' => $targetTimezone,
+                'message' => $message,
+                'selection_reason' => $toolSelection['reason'] ?? null
+            ];
+        } catch (\Exception $e) {
+            Log::error('LLM tool selection failed', [
+                'message' => $e->getMessage(),
+                'query' => $message
+            ]);
+            
+            // If LLM fails, we cannot proceed - no tools available
+            return [
+                'needs_tool' => false,
+                'message' => $message,
+                'error' => 'Tool selection failed: ' . $e->getMessage()
+            ];
+        }
     }
 
     /**
-     * Use LLM to intelligently select the best tool based on user message and tool descriptions.
+     * Pure LLM-based tool selection - no manual patterns!
+     * LLM reads tools directly from MCP server.
      */
     private function llmSelectTool(string $message, string $userTimezone): array
     {
-        // Get available tools
+        // Get tools directly from MCP server
         $availableTools = $this->mcpClient->getAvailableTools();
         
         if (empty($availableTools)) {
-            // Fallback to default tool
-            return [
-                'tool_name' => 'get-current-date-time-tool',
-                'reason' => 'No tools available, using default'
-            ];
+            throw new \Exception('No MCP tools available');
         }
 
-        // If OpenAI is not available, fallback to basic logic
+        // If OpenAI is not available, we cannot proceed (no fallback)
         if (!$this->isOpenAIAvailable()) {
-            return $this->basicToolSelection($message);
+            throw new \Exception('OpenAI not available for tool selection');
         }
 
-        try {
-            // Prepare tool descriptions for LLM
-            $toolDescriptions = [];
-            foreach ($availableTools as $tool) {
-                $toolDescriptions[] = "- {$tool['name']}: {$tool['description']}";
+        // Prepare tool descriptions for LLM to read directly from MCP
+        $toolDescriptions = [];
+        foreach ($availableTools as $tool) {
+            $inputSchema = $tool['inputSchema'] ?? [];
+            $properties = $inputSchema['properties'] ?? [];
+            $params = [];
+            
+            foreach ($properties as $paramName => $paramInfo) {
+                $params[] = "- {$paramName}: {$paramInfo['description']}";
             }
+            
+            $paramString = !empty($params) ? " (Parameters: " . implode(", ", $params) . ")" : "";
+            $toolDescriptions[] = "- {$tool['name']}: {$tool['description']}{$paramString}";
+        }
 
-            // Ask LLM to select the best tool
-            $response = OpenAI::chat()->create([
-                'model' => 'gpt-4o-mini',
-                'messages' => [
-                    [
-                        'role' => 'system',
-                        'content' => 'You are a tool selection assistant. Based on the user message and available tools, select the most appropriate tool. Available tools: ' . implode("\n", $toolDescriptions) . '. Respond with only the tool name (e.g., "get-current-date-time-tool").'
-                    ],
-                    [
-                        'role' => 'user',
-                        'content' => "User message: \"{$message}\"\nUser timezone: {$userTimezone}\n\nWhich tool should be used? Respond with only the tool name."
-                    ]
+        // LLM reads tool descriptions and selects best match
+        $response = OpenAI::chat()->create([
+            'model' => 'gpt-4o-mini',
+            'messages' => [
+                [
+                    'role' => 'system',
+                    'content' => 'You are a pure AI tool selection assistant. Based ONLY on the user message and the available tools below, select the most appropriate tool. Do NOT use any external knowledge or assumptions. Only use the tool descriptions provided. Respond with only the exact tool name from the list.'
                 ],
-                'max_tokens' => 50,
-                'temperature' => 0
-            ]);
+                [
+                    'role' => 'user',
+                    'content' => "Available tools:\n" . implode("\n", $toolDescriptions) . "\n\nUser message: \"{$message}\"\nUser timezone: {$userTimezone}\n\nSelect the best tool. Respond with ONLY the tool name."
+                ]
+            ],
+            'max_tokens' => 50,
+            'temperature' => 0
+        ]);
 
-            $selectedTool = trim(strtolower($response->choices[0]->message->content));
-            
-            // Validate the selected tool exists
-            $validToolNames = array_column($availableTools, 'name');
-            if (in_array($selectedTool, $validToolNames)) {
-                Log::debug('LLM selected tool', [
-                    'message' => $message,
-                    'selected_tool' => $selectedTool
-                ]);
-                
-                return [
-                    'tool_name' => $selectedTool,
-                    'reason' => 'LLM intelligent selection'
-                ];
-            }
-            
-        } catch (\Exception $e) {
-            Log::warning('LLM tool selection failed, falling back to basic logic', [
-                'error' => $e->getMessage(),
-                'message' => $message
-            ]);
+        $selectedTool = trim(strtolower($response->choices[0]->message->content));
+        
+        // Validate the selected tool exists
+        $validToolNames = array_column($availableTools, 'name');
+        if (!in_array($selectedTool, $validToolNames)) {
+            throw new \Exception("LLM selected invalid tool: {$selectedTool}");
         }
-
-        // Fallback to basic selection
-        return $this->basicToolSelection($message);
-    }
-
-    /**
-     * Basic tool selection as fallback (using simple patterns).
-     */
-    private function basicToolSelection(string $message): array
-    {
-        $messageLower = strtolower($message);
-
-        // Timezone conversion patterns
-        if (preg_match('/(convert|konversi|ubah|ke|from)/', $messageLower)) {
-            return [
-                'tool_name' => 'convert-timezone-tool',
-                'reason' => 'Pattern match: conversion keywords'
-            ];
-        }
-
-        // Timezone info patterns  
-        if (preg_match('/(info|timezone|zona waktu)/', $messageLower)) {
-            return [
-                'tool_name' => 'get-timezone-info-tool',
-                'reason' => 'Pattern match: info keywords'
-            ];
-        }
-
-        // List timezones patterns
-        if (preg_match('/(list|daftar|semua)/', $messageLower)) {
-            return [
-                'tool_name' => 'list-timezones-tool',
-                'reason' => 'Pattern match: list keywords'
-            ];
-        }
-
-        // Default to current datetime
+        
+        Log::info('LLM pure tool selection', [
+            'message' => $message,
+            'selected_tool' => $selectedTool,
+            'available_tools' => count($availableTools)
+        ]);
+        
         return [
-            'tool_name' => 'get-current-date-time-tool',
-            'reason' => 'Default selection'
+            'tool_name' => $selectedTool,
+            'reason' => 'Pure LLM selection from MCP tools'
         ];
     }
 
