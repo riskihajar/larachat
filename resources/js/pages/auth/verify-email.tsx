@@ -6,6 +6,8 @@ import { FormEventHandler } from 'react';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import AuthLayout from '@/layouts/auth-layout';
+import { store as verificationSendStore } from '@/actions/App/Http/Controllers/Auth/EmailVerificationNotificationController';
+import { destroy as logoutDestroy } from '@/actions/App/Http/Controllers/Auth/AuthenticatedSessionController';
 
 export default function VerifyEmail({ status }: { status?: string }) {
     const { post, processing } = useForm({});
@@ -13,7 +15,7 @@ export default function VerifyEmail({ status }: { status?: string }) {
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
 
-        post(route('verification.send'));
+        post(verificationSendStore().url);
     };
 
     return (
@@ -32,7 +34,7 @@ export default function VerifyEmail({ status }: { status?: string }) {
                     Resend verification email
                 </Button>
 
-                <TextLink href={route('logout')} method="post" className="mx-auto block text-sm">
+                <TextLink href={logoutDestroy().url} method="post" className="mx-auto block text-sm">
                     Log out
                 </TextLink>
             </form>

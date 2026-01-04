@@ -2,6 +2,8 @@ import { cn } from '@/lib/utils';
 import { Link, router, useForm } from '@inertiajs/react';
 import { Check, MessageSquare, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { store as chatStore, show as chatShow, update as chatUpdate, destroy as chatDestroy } from '@/actions/App/Http/Controllers/ChatController';
+import { create as loginCreate } from '@/actions/App/Http/Controllers/Auth/AuthenticatedSessionController';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -115,9 +117,9 @@ export default function ChatList({ currentChatId, isAuthenticated }: ChatListPro
 
     const handleNewChat = () => {
         if (!isAuthenticated) {
-            router.visit('/login');
+            router.visit(loginCreate().url);
         } else {
-            createChat('/chat', {
+            createChat(chatStore().url, {
                 onSuccess: () => {
                     // Chats will refresh when currentChatId changes
                 },
@@ -129,7 +131,7 @@ export default function ChatList({ currentChatId, isAuthenticated }: ChatListPro
         event?.preventDefault();
         event?.stopPropagation();
 
-        router.delete(`/chat/${chatId}`, {
+        router.delete(chatDestroy(chatId).url, {
             onBefore: () => {
                 // Optimistically remove from local state
                 setChats((prevChats) => prevChats.filter((chat) => chat.id !== chatId));
@@ -172,7 +174,7 @@ export default function ChatList({ currentChatId, isAuthenticated }: ChatListPro
     const saveTitle = (chatId: number) => {
         if (!data.title.trim() || processing) return;
 
-        patch(`/chat/${chatId}`, {
+        patch(chatUpdate(chatId).url, {
             onSuccess: () => {
                 // Update local state
                 setChats((prevChats) => prevChats.map((chat) => (chat.id === chatId ? { ...chat, title: data.title.trim() } : chat)));
@@ -217,7 +219,7 @@ export default function ChatList({ currentChatId, isAuthenticated }: ChatListPro
                                             <Tooltip key={chat.id}>
                                                 <TooltipTrigger asChild>
                                                     <Link
-                                                        href={`/chat/${chat.id}`}
+                                                        href={chatShow(chat.id).url}
                                                         prefetch="hover"
                                                         cacheFor="5m"
                                                         className={cn(
@@ -274,7 +276,7 @@ export default function ChatList({ currentChatId, isAuthenticated }: ChatListPro
                                                 // View mode
                                                 <>
                                                     <Link
-                                                        href={`/chat/${chat.id}`}
+                                                        href={chatShow(chat.id).url}
                                                         prefetch="hover"
                                                         cacheFor="5m"
                                                         className={cn(
