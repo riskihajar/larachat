@@ -185,10 +185,10 @@ class DateTimeFormatter
     public function isDateTimeQuery(string $message): bool
     {
         $datetimeKeywords = [
-            'tanggal', 'waktu', 'jam', 'sekarang', 'hari ini', 'besok', 'kemarin',
+            'tanggal', 'waktu', 'jam', 'sekarang', 'hari', 'hari ini', 'besok', 'kemarin',
             'bulan', 'tahun', 'timezone', 'zona waktu', 'konversi waktu',
-            'jam berapa', 'tanggal berapa', 'waktu sekarang', 'sekarang jam',
-            'date', 'time', 'now', 'timezone', 'convert time'
+            'jam berapa', 'tanggal berapa', 'hari apa', 'waktu sekarang', 'sekarang jam',
+            'date', 'time', 'now', 'timezone', 'convert time', 'what day', 'day today'
         ];
 
         $messageLower = strtolower($message);
