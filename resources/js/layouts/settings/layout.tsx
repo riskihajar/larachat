@@ -1,9 +1,9 @@
 import Heading from '@/components/heading';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 import { type NavItem } from '@/types';
-import { Link, router } from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
 import { type PropsWithChildren } from 'react';
 
 const sidebarNavItems: NavItem[] = [
@@ -38,22 +38,23 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
 
             <div className="flex flex-col space-y-8 lg:flex-row lg:space-y-0 lg:space-x-12">
                 <aside className="w-full max-w-xl lg:w-48">
-                    <Tabs value={currentPath} onValueChange={(value) => router.visit(value)} orientation="vertical" className="w-full">
-                        <TabsList className="flex h-auto w-full flex-col items-stretch gap-1 bg-transparent p-0">
-                            {sidebarNavItems.map((item) => (
-                                <TabsTrigger
-                                    key={item.href}
-                                    value={item.href}
-                                    asChild
-                                    className="data-[state=active]:bg-muted justify-start px-3 py-2"
-                                >
-                                    <Link href={item.href} prefetch>
-                                        {item.title}
-                                    </Link>
-                                </TabsTrigger>
-                            ))}
-                        </TabsList>
-                    </Tabs>
+                    <nav className="flex flex-col gap-1 rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800">
+                        {sidebarNavItems.map((item) => (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                prefetch
+                                className={cn(
+                                    'flex items-center rounded-md px-3.5 py-1.5 text-sm transition-colors',
+                                    currentPath === item.href
+                                        ? 'bg-white shadow-xs dark:bg-neutral-700 dark:text-neutral-100'
+                                        : 'text-neutral-500 hover:bg-neutral-200/60 hover:text-black dark:text-neutral-400 dark:hover:bg-neutral-700/60',
+                                )}
+                            >
+                                {item.title}
+                            </Link>
+                        ))}
+                    </nav>
                 </aside>
 
                 <Separator className="my-6 md:hidden" />
