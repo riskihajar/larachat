@@ -152,10 +152,11 @@ class OpenAIProvider implements LLMProviderInterface
                 $toolRequest['timezone']
             );
 
-            // Add tool result to context for OpenAI
+            // Add tool result to context for OpenAI - let LLM format naturally
+            $toolData = $toolResult['tool_result']['data'] ?? $toolResult['tool_result'];
             $messages[] = [
                 'role' => 'system',
-                'content' => "Hasil tool {$toolRequest['tool_name']}: {$toolResult['formatted_response']}"
+                'content' => "Tool {$toolRequest['tool_name']} executed successfully with this data: " . json_encode($toolData) . ". Provide a natural Indonesian response based on this data."
             ];
 
             // Format messages for OpenAI
@@ -285,8 +286,14 @@ class OpenAIProvider implements LLMProviderInterface
                         $toolRequest['timezone']
                     );
 
-                    // Return the formatted response
-                    yield $toolResult['formatted_response'];
+                    // Let LLM handle formatting naturally
+                    $toolData = $toolResult['tool_result']['data'] ?? $toolResult['tool_result'];
+                    $messages[] = [
+                        'role' => 'system',
+                        'content' => "Tool {$toolRequest['tool_name']} executed successfully with this data: " . json_encode($toolData) . ". Provide a natural Indonesian response based on this data."
+                    ];
+                    
+                    yield from $this->stream($messages);
                     return;
                 }
             } catch (\Exception $e) {

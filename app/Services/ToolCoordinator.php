@@ -17,14 +17,12 @@ use Aws\Signature\SignatureV4;
 class ToolCoordinator
 {
     private McpClient $mcpClient;
-    private DateTimeFormatter $formatter;
     private LLMProviderInterface $llmProvider;
 
     public function __construct(LLMProviderInterface $llmProvider)
     {
         $this->llmProvider = $llmProvider;
         $this->mcpClient = new McpClient();
-        $this->formatter = new DateTimeFormatter();
     }
 
     /**
@@ -51,6 +49,7 @@ class ToolCoordinator
 
     /**
      * Execute tool using dynamic MCP tool name resolution.
+     * Returns raw tool results for LLM to format naturally.
      */
     public function executeTool(string $functionName, array $arguments, string $timezone = 'Asia/Makassar'): array
     {
@@ -58,12 +57,10 @@ class ToolCoordinator
         $mcpToolName = $this->mcpClient->getMcpToolNameFromFunction($functionName);
 
         $result = $this->mcpClient->callTool($mcpToolName, $arguments);
-        $formattedResponse = $this->formatter->formatToolResult($mcpToolName, $result, $timezone);
 
         return [
             'success' => $result['success'],
             'tool_result' => $result,
-            'formatted_response' => $formattedResponse,
             'tool_name' => $mcpToolName,
             'arguments' => $arguments
         ];
@@ -71,32 +68,21 @@ class ToolCoordinator
 
     /**
      * Process a user message and determine if tool calling is needed.
+     * Let LLM handle all classification and tool selection naturally.
      */
     public function processMessage(string $message, string $userTimezone = 'Asia/Makassar'): array
     {
-        // Check if message is a datetime query using LLM reasoning
-        if (!$this->formatter->isDateTimeQuery($message)) {
-            return [
-                'needs_tool' => false,
-                'message' => $message
-            ];
-        }
-
-        // Extract timezone from message if mentioned
-        $extractedTimezone = $this->formatter->extractTimezoneFromMessage($message);
-        $targetTimezone = $extractedTimezone ?? $userTimezone;
-
-        // Use LLM to intelligently select the best tool
+        // Let LLM handle everything - classification, tool selection, and parameter extraction
         try {
-            $toolSelection = $this->llmSelectTool($message, $targetTimezone);
+            $toolSelection = $this->llmSelectTool($message, $userTimezone);
             $toolName = $toolSelection['tool_name'];
-            $arguments = $this->buildArguments($toolName, $message, $targetTimezone);
+            $arguments = $this->buildArguments($toolName, $message, $userTimezone);
 
             return [
                 'needs_tool' => true,
                 'tool_name' => $toolName,
                 'arguments' => $arguments,
-                'timezone' => $targetTimezone,
+                'timezone' => $userTimezone,
                 'message' => $message,
                 'selection_reason' => $toolSelection['reason'] ?? null
             ];
@@ -105,8 +91,8 @@ class ToolCoordinator
                 'message' => $e->getMessage(),
                 'query' => $message
             ]);
-            
-            // If LLM fails, we cannot proceed - no tools available
+
+            // If LLM fails, return no tool needed - let normal chat continue
             return [
                 'needs_tool' => false,
                 'message' => $message,
@@ -268,13 +254,41 @@ class ToolCoordinator
 
     /**
      * Build arguments for the tool based on message content.
-     * This is now a placeholder - in a real implementation, use AI to extract
-     * parameters from natural language.
+     * Extract parameters from natural language using LLM.
      */
     private function buildArguments(string $toolName, string $message, string $timezone): array
     {
-        // For now, just return basic timezone argument
-        // In production, use AI to extract relevant parameters from the message
+        // Use LLM to extract relevant parameters from the message
+        try {
+            $prompt = "Extract parameters for the tool '{$toolName}' from this user message: \"{$message}\"
+
+Return a JSON object with the parameters. Available parameter: timezone (default: {$timezone})
+
+If the message mentions a specific location/timezone, extract it. Otherwise use the default timezone.
+
+Respond with only valid JSON.";
+
+            $response = $this->callLLMForToolSelection($prompt);
+            $content = trim($response->choices[0]->message->content);
+
+            // Try to parse JSON response
+            $arguments = json_decode($content, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($arguments)) {
+                // Ensure timezone is always present
+                if (!isset($arguments['timezone'])) {
+                    $arguments['timezone'] = $timezone;
+                }
+                return $arguments;
+            }
+        } catch (\Exception $e) {
+            Log::warning('Failed to extract parameters from message', [
+                'tool' => $toolName,
+                'message' => $message,
+                'error' => $e->getMessage()
+            ]);
+        }
+
+        // Fallback to basic timezone argument
         return ['timezone' => $timezone];
     }
 }

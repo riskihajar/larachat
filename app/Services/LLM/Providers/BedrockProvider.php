@@ -80,11 +80,11 @@ class BedrockProvider implements LLMProviderInterface
                 $toolRequest['timezone']
             );
 
-            // Add tool result with natural response guidance
-            $toolInfo = $toolResult['formatted_response'];
+            // Add tool result with natural response guidance - let LLM format naturally
+            $toolData = $toolResult['tool_result']['data'] ?? $toolResult['tool_result'];
             $messages[] = [
                 'role' => 'system',
-                'content' => "Hasil tool {$toolRequest['tool_name']}: {$toolInfo}\n\nSekarang berikan respons yang sangat natural dan ramah. Contoh: \"Sekarang jam X WITA, tanggal X bulan X. Ada yang bisa saya bantu?\" atau \"Tanggal X bulan X, jam X WITA. Senang membantu!\" - Gunakan bahasa Indonesia yang santai, hindari kata-kata teknis seperti 'berdasarkan tool' atau 'informasi yang diterima'."
+                'content' => "Tool {$toolRequest['tool_name']} executed successfully with this data: " . json_encode($toolData) . ". Provide a natural Indonesian response based on this data."
             ];
 
             // Stream normal response with tool result in context
