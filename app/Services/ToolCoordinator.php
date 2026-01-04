@@ -7,6 +7,12 @@ namespace App\Services;
 use Illuminate\Support\Facades\Log;
 use App\Services\LLM\Contracts\LLMProviderInterface;
 use OpenAI\Laravel\Facades\OpenAI;
+use GuzzleHttp\Client;
+use GuzzleHttp\Exception\RequestException;
+use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\ResponseInterface;
+use Aws\Credentials\Credentials;
+use Aws\Signature\SignatureV4;
 
 class ToolCoordinator
 {
@@ -189,26 +195,65 @@ class ToolCoordinator
                 'temperature' => 0
             ]);
         } elseif ($providerName === 'bedrock') {
-            // For Bedrock, we'd need to implement the AWS Bedrock API call
-            // For now, let's fallback to OpenAI if available, otherwise throw error
-            if (config('openai.api_key')) {
-                return OpenAI::chat()->create([
-                    'model' => 'gpt-4o-mini',
-                    'messages' => [
-                        [
-                            'role' => 'user',
-                            'content' => $prompt
-                        ]
-                    ],
-                    'max_tokens' => 50,
-                    'temperature' => 0
-                ]);
-            } else {
-                throw new \Exception('No LLM provider available for tool selection');
-            }
+            // Use Bedrock API for tool selection
+            return $this->callBedrockForToolSelection($prompt);
         } else {
             throw new \Exception("Unsupported LLM provider: {$providerName}");
         }
+    }
+
+    /**
+     * Call Bedrock API for tool selection.
+     */
+    private function callBedrockForToolSelection(string $prompt): object
+    {
+        $region = config('llm.bedrock.region');
+        $model = 'us.anthropic.claude-3-5-haiku-20241022-v1:0';
+        $host = "bedrock-runtime.{$region}.amazonaws.com";
+        $url = "https://{$host}/model/{$model}/invoke";
+
+        $payload = [
+            'anthropic_version' => 'bedrock-2023-05-31',
+            'max_tokens' => 50,
+            'messages' => [
+                [
+                    'role' => 'user',
+                    'content' => $prompt
+                ]
+            ],
+            'temperature' => 0,
+        ];
+
+        // Create HTTP request
+        $httpClient = new Client();
+        $body = json_encode($payload);
+        $request = new \GuzzleHttp\Psr7\Request('POST', $url, [
+            'Content-Type' => 'application/json',
+            'Accept' => 'application/json',
+        ], $body);
+
+        // Sign request with AWS Signature V4
+        $credentials = new Credentials(
+            config('llm.bedrock.key'),
+            config('llm.bedrock.secret')
+        );
+        $signer = new SignatureV4('bedrock', $region);
+        $signedRequest = $signer->signRequest($request, $credentials);
+
+        // Send request
+        $response = $httpClient->send($signedRequest);
+        $responseBody = json_decode($response->getBody()->getContents(), true);
+
+        // Convert Bedrock response to OpenAI-like format
+        return (object) [
+            'choices' => [
+                (object) [
+                    'message' => (object) [
+                        'content' => $responseBody['content'][0]['text'] ?? ''
+                    ]
+                ]
+            ]
+        ];
     }
 
     /**
