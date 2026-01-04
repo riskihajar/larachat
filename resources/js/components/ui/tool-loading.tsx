@@ -32,7 +32,7 @@ export function ToolExecutionIndicator({
   status = "executing" 
 }: {
   toolName: string;
-  arguments: Record<string, any>;
+  arguments: Record<string, unknown>;
   status?: "executing" | "completed" | "error";
 }) {
   const getStatusIcon = () => {

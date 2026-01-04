@@ -8,6 +8,7 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Http\StreamedEvent;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class ChatController extends Controller
@@ -155,8 +156,10 @@ class ChatController extends Controller
             }
         }
 
+        $provider = LLMProviderFactory::make($providerName, $modelName);
+
         // Enable tools for OpenAI provider
-        if ($providerName === 'openai') {
+        if ($providerName === 'openai' && $provider instanceof \App\Services\LLM\Providers\OpenAIProvider) {
             $provider = $provider->withTools();
         }
 
@@ -194,9 +197,11 @@ class ChatController extends Controller
             $userContext = ['timezone' => $userTimezone];
 
             try {
-                // Use streaming with tools if provider supports it
-                if (method_exists($provider, 'streamWithTools')) {
-                    foreach ($provider->streamWithTools($messages, $userContext) as $chunk) {
+                // Check if provider supports tool calling
+                $openaiProvider = $provider instanceof \App\Services\LLM\Providers\OpenAIProvider ? $provider : null;
+
+                if ($openaiProvider && method_exists($openaiProvider, 'streamWithTools')) {
+                    foreach ($openaiProvider->streamWithTools($messages, $userContext) as $chunk) {
                         $fullResponse .= $chunk;
 
                         // Send chunk immediately
@@ -207,7 +212,6 @@ class ChatController extends Controller
                         @flush();
                     }
                 } else {
-                    // Fallback to regular streaming
                     foreach ($provider->stream($messages) as $chunk) {
                         $fullResponse .= $chunk;
 
@@ -220,7 +224,7 @@ class ChatController extends Controller
                     }
                 }
             } catch (\Exception $e) {
-                \Log::error('LLM streaming error', [
+                Log::error('LLM streaming error', [
                     'provider' => $provider->getName(),
                     'error' => $e->getMessage(),
                 ]);
@@ -240,12 +244,12 @@ class ChatController extends Controller
                 ]);
 
                 // Generate title if this is a new chat with "Untitled" title
-                \Log::info('Checking if should generate title', ['chat_title' => $chat->title]);
+                Log::info('Checking if should generate title', ['chat_title' => $chat->title]);
                 if ($chat->title === 'Untitled') {
-                    \Log::info('Generating title in background for chat', ['chat_id' => $chat->id]);
+                    Log::info('Generating title in background for chat', ['chat_id' => $chat->id]);
                     $this->generateTitleInBackground($chat);
                 } else {
-                    \Log::info('Not generating title', ['current_title' => $chat->title]);
+                    Log::info('Not generating title', ['current_title' => $chat->title]);
                 }
             }
         }, 200, [
@@ -272,9 +276,9 @@ class ChatController extends Controller
     {
         $this->authorize('view', $chat);
 
-        \Log::info('Title stream requested for chat', ['chat_id' => $chat->id, 'title' => $chat->title]);
+        Log::info('Title stream requested for chat', ['chat_id' => $chat->id, 'title' => $chat->title]);
 
-        return response()->eventStream(function () use ($chat) {
+        return response()->stream(function () use ($chat) {
             // If title is already set and not "Untitled", send it immediately
             if ($chat->title && $chat->title !== 'Untitled') {
                 yield new StreamedEvent(
@@ -298,17 +302,24 @@ class ChatController extends Controller
 
                 // If title has changed from "Untitled", send it
                 if ($chat->title !== 'Untitled') {
-                    yield new StreamedEvent(
-                        event: 'title-update',
-                        data: json_encode(['title' => $chat->title])
-                    );
+                    echo "event: title-update\n";
+                    echo "data: " . json_encode(['title' => $chat->title]) . "\n\n";
+                    @ob_flush();
+                    @flush();
                     break;
                 }
 
                 // Wait a bit before checking again
                 usleep(500000); // 0.5 seconds
             }
-        }, endStreamWith: new StreamedEvent(event: 'title-update', data: '</stream>'));
+            
+            echo "event: title-update\n";
+            echo "data: </stream>\n\n";
+        }, 200, [
+            'Cache-Control' => 'no-cache',
+            'Content-Type' => 'text/event-stream',
+            'X-Accel-Buffering' => 'no',
+        ]);
     }
 
     private function generateTitleInBackground(Chat $chat)
@@ -328,7 +339,7 @@ class ChatController extends Controller
             // Update the chat title
             $chat->update(['title' => $generatedTitle]);
 
-            \Log::info('Generated title for chat', [
+            Log::info('Generated title for chat', [
                 'chat_id' => $chat->id,
                 'title' => $generatedTitle,
                 'provider' => $chat->provider,
@@ -337,7 +348,7 @@ class ChatController extends Controller
             // Fallback title on error
             $fallbackTitle = substr($firstMessage->content, 0, 47).'...';
             $chat->update(['title' => $fallbackTitle]);
-            \Log::error('Error generating title, using fallback', ['error' => $e->getMessage()]);
+            Log::error('Error generating title, using fallback', ['error' => $e->getMessage()]);
         }
     }
 

@@ -125,13 +125,14 @@ class OpenAIProvider implements LLMProviderInterface
 
         // Check if in testing environment or API key not set
         if (app()->environment('testing') || ! config('openai.api_key')) {
-            yield 'This is a test response with tools.';
+            // For demonstration, show real datetime functionality without API key
+            yield from $this->simulateDatetimeResponse($userMessage ?? '', $userTimezone ?? 'Asia/Makassar');
             return;
         }
 
         try {
-            // Get the latest user message
-            $latestMessage = end($messages);
+            // Get the latest user message safely
+            $latestMessage = $messages[array_key_last($messages)] ?? ['content' => ''];
             $userMessage = $latestMessage['content'] ?? '';
             $userTimezone = $userContext['timezone'] ?? 'Asia/Makassar';
 
@@ -162,7 +163,7 @@ class OpenAIProvider implements LLMProviderInterface
 
             // Add function schemas to the first system message
             $functionSchemas = $this->toolCoordinator->getFunctionSchemas();
-            
+
             $stream = OpenAI::chat()->createStreamed([
                 'model' => $this->model,
                 'messages' => $openAIMessages,
@@ -212,11 +213,7 @@ class OpenAIProvider implements LLMProviderInterface
             'list_timezones' => 'list-timezones-tool',
         ];
 
-        $mcpToolName = $functionMap[$functionName] ?? null;
-        
-        if (!$mcpToolName) {
-            throw new \Exception("Unknown function: {$functionName}");
-        }
+        $mcpToolName = $functionMap[$functionName] ?? $functionName;
 
         return $this->toolCoordinator->executeTool($mcpToolName, $arguments, $userTimezone);
     }
@@ -251,5 +248,57 @@ class OpenAIProvider implements LLMProviderInterface
             ->filter()
             ->values()
             ->toArray();
+    }
+
+    /**
+     * Simulate datetime response for demonstration without API key.
+     */
+    private function simulateDatetimeResponse(string $userMessage, string $userTimezone): \Generator
+    {
+        // Detect if this is a datetime-related query (Indonesian + English)
+        $datetimeKeywords = [
+            'jam', 'waktu', 'tanggal', 'hari', 'sekarang', 'kapan',
+            'timezone', 'convert', 'zona waktu', 'berapa', 'time', 'date',
+            'makassar', 'wita', 'utc', 'jam berapa', 'what time', 'current time'
+        ];
+        $isDatetimeQuery = false;
+
+        foreach ($datetimeKeywords as $keyword) {
+            if (stripos(strtolower($userMessage), strtolower($keyword)) !== false) {
+                $isDatetimeQuery = true;
+                break;
+            }
+        }
+
+        if ($isDatetimeQuery && $this->toolCoordinator) {
+            // Use the actual tool coordinator to demonstrate real functionality
+            try {
+                $toolRequest = $this->toolCoordinator->processMessage($userMessage, $userTimezone);
+
+                if ($toolRequest['needs_tool']) {
+                    yield "🔧 Menggunakan tool {$toolRequest['tool_name']}...";
+
+                    // Execute the actual tool
+                    $toolResult = $this->toolCoordinator->executeTool(
+                        $toolRequest['tool_name'],
+                        $toolRequest['arguments'],
+                        $toolRequest['timezone']
+                    );
+
+                    // Return the formatted response
+                    yield $toolResult['formatted_response'];
+                    return;
+                }
+            } catch (\Exception $e) {
+                Log::info('Demo datetime tool execution failed, using fallback', [
+                    'error' => $e->getMessage(),
+                    'message' => $userMessage,
+                ]);
+            }
+        }
+
+        // Fallback response
+        yield 'Halo! Saya bisa membantu dengan pertanyaan tentang waktu dan tanggal. ' .
+              'Coba tanyakan "Sekarang jam berapa?" atau "Jam berapa di Makassar?" untuk melihat fitur datetime tool saya!';
     }
 }

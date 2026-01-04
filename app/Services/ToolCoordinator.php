@@ -105,91 +105,28 @@ class ToolCoordinator
                 $arguments['timezone'] = $timezone;
                 break;
 
-            case 'get-timezone-info-tool':
-                $arguments['timezone'] = $timezone;
+            case 'convert-timezone-tool':
+                $arguments['datetime'] = 'now';
+                $arguments['from_timezone'] = $timezone;
+
+                // Extract target timezone from message
+                $extractedTimezone = $this->formatter->extractTimezoneFromMessage($message);
+                if ($extractedTimezone) {
+                    $arguments['to_timezone'] = $extractedTimezone;
+                }
                 break;
 
-            case 'convert-timezone-tool':
-                // Extract datetime, from_timezone, and to_timezone from message
-                $arguments = $this->extractConversionArguments($message, $timezone);
+            case 'get-timezone-info-tool':
+                $extractedTimezone = $this->formatter->extractTimezoneFromMessage($message);
+                $arguments['timezone'] = $extractedTimezone ?? $timezone;
                 break;
 
             case 'list-timezones-tool':
-                $arguments['limit'] = 10; // Limit for conversational responses
+                $arguments['limit'] = 10;
                 break;
         }
 
         return $arguments;
-    }
-
-    /**
-     * Extract arguments for timezone conversion from message.
-     */
-    private function extractConversionArguments(string $message, string $defaultTimezone): array
-    {
-        $arguments = [
-            'datetime' => 'now',
-            'from_timezone' => $defaultTimezone,
-            'to_timezone' => 'UTC' // Default target
-        ];
-
-        $messageLower = strtolower($message);
-
-        // Common timezone patterns
-        $timezoneMap = [
-            'makassar' => 'Asia/Makassar',
-            'jakarta' => 'Asia/Jakarta',
-            'utc' => 'UTC',
-            'new york' => 'America/New_York',
-            'london' => 'Europe/London',
-            'tokyo' => 'Asia/Tokyo',
-            'singapore' => 'Asia/Singapore'
-        ];
-
-        // Extract "from" timezone
-        if (preg_match('/dari\s+([a-z\s]+?)(?:\s+ke|\s+kezona|\s+timezone|$)/i', $message, $matches)) {
-            $fromTzName = trim($matches[1]);
-            $arguments['from_timezone'] = $this->mapTimezoneName($fromTzName, $timezoneMap) ?? $defaultTimezone;
-        }
-
-        // Extract "to" timezone
-        if (preg_match('/ke\s+([a-z\s]+?)(?:\s+timezone|$)/i', $message, $matches)) {
-            $toTzName = trim($matches[1]);
-            $arguments['to_timezone'] = $this->mapTimezoneName($toTzName, $timezoneMap) ?? 'UTC';
-        }
-
-        // Extract specific datetime if mentioned
-        if (preg_match('/(\d{4}-\d{2}-\d{2}|\d{2}\/\d{2}\/\d{4}|hari ini|sekarang|now)/i', $message, $matches)) {
-            $datetimeStr = strtolower($matches[1]);
-            $arguments['datetime'] = match ($datetimeStr) {
-                'hari ini', 'sekarang', 'now' => 'now',
-                default => $matches[1]
-            };
-        }
-
-        return $arguments;
-    }
-
-    /**
-     * Map common timezone names to proper timezone identifiers.
-     */
-    private function mapTimezoneName(string $name, array $timezoneMap): ?string
-    {
-        $nameLower = strtolower($name);
-        
-        foreach ($timezoneMap as $pattern => $timezone) {
-            if (str_contains($nameLower, $pattern)) {
-                return $timezone;
-            }
-        }
-
-        // Check if the name itself is a valid timezone
-        try {
-            new \DateTimeZone($name);
-            return $name;
-        } catch (\Exception $e) {
-            return null;
-        }
     }
 
     /**
@@ -199,68 +136,80 @@ class ToolCoordinator
     {
         return [
             [
-                'name' => 'get_current_datetime',
-                'description' => 'Mendapatkan tanggal dan waktu saat ini dengan informasi timezone. Gunakan ketika user menanyakan waktu sekarang, tanggal hari ini, atau jam berapa sekarang.',
-                'parameters' => [
-                    'type' => 'object',
-                    'properties' => [
-                        'timezone' => [
-                            'type' => 'string',
-                            'description' => 'Timezone identifier (contoh: "Asia/Makassar", "UTC", "America/New_York"). Default ke Asia/Makassar untuk user Indonesia.',
-                            'default' => 'Asia/Makassar'
+                'type' => 'function',
+                'function' => [
+                    'name' => 'get_current_datetime',
+                    'description' => 'Mendapatkan tanggal dan waktu saat ini dengan informasi timezone. Gunakan ketika user menanyakan waktu sekarang, tanggal hari ini, atau jam berapa sekarang.',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'timezone' => [
+                                'type' => 'string',
+                                'description' => 'Timezone identifier (contoh: "Asia/Makassar", "UTC", "America/New_York"). Default ke Asia/Makassar untuk user Indonesia.',
+                                'default' => 'Asia/Makassar'
+                            ]
                         ]
                     ]
                 ]
             ],
             [
-                'name' => 'convert_timezone',
-                'description' => 'Mengkonversi waktu dari satu timezone ke timezone lain. Gunakan ketika user ingin tahu waktu di timezone lain atau ingin konversi waktu.',
-                'parameters' => [
-                    'type' => 'object',
-                    'properties' => [
-                        'datetime' => [
-                            'type' => 'string',
-                            'description' => 'Tanggal dan waktu untuk dikonversi. Format: "2024-01-15 14:30:00" atau "now" untuk waktu saat ini.',
-                            'default' => 'now'
+                'type' => 'function',
+                'function' => [
+                    'name' => 'convert_timezone',
+                    'description' => 'Mengkonversi waktu dari satu timezone ke timezone lain. Gunakan ketika user ingin tahu waktu di timezone lain atau ingin konversi waktu.',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'datetime' => [
+                                'type' => 'string',
+                                'description' => 'Tanggal dan waktu untuk dikonversi. Format: "2024-01-15 14:30:00" atau "now" untuk waktu saat ini.',
+                                'default' => 'now'
+                            ],
+                            'from_timezone' => [
+                                'type' => 'string',
+                                'description' => 'Timezone asal. Contoh: "Asia/Makassar", "UTC". Default ke timezone user.',
+                                'default' => 'Asia/Makassar'
+                            ],
+                            'to_timezone' => [
+                                'type' => 'string',
+                                'description' => 'Timezone tujuan. Contoh: "America/New_York", "Europe/London".',
+                            ]
                         ],
-                        'from_timezone' => [
-                            'type' => 'string',
-                            'description' => 'Timezone asal. Contoh: "Asia/Makassar", "UTC". Default ke timezone user.',
-                            'default' => 'Asia/Makassar'
-                        ],
-                        'to_timezone' => [
-                            'type' => 'string',
-                            'description' => 'Timezone tujuan. Contoh: "America/New_York", "Europe/London".',
-                        ]
-                    ],
-                    'required' => ['to_timezone']
+                        'required' => ['to_timezone']
+                    ]
                 ]
             ],
             [
-                'name' => 'get_timezone_info',
-                'description' => 'Mendapatkan informasi detail tentang timezone tertentu. Gunakan ketika user menanyakan info zona waktu atau offset timezone.',
-                'parameters' => [
-                    'type' => 'object',
-                    'properties' => [
-                        'timezone' => [
-                            'type' => 'string',
-                            'description' => 'Timezone identifier untuk dicek. Contoh: "Asia/Makassar", "UTC".',
-                        ]
-                    ],
-                    'required' => ['timezone']
+                'type' => 'function',
+                'function' => [
+                    'name' => 'get_timezone_info',
+                    'description' => 'Mendapatkan informasi detail tentang timezone tertentu. Gunakan ketika user menanyakan info zona waktu atau offset timezone.',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'timezone' => [
+                                'type' => 'string',
+                                'description' => 'Timezone identifier untuk dicek. Contoh: "Asia/Makassar", "UTC".',
+                            ]
+                        ],
+                        'required' => ['timezone']
+                    ]
                 ]
             ],
             [
-                'name' => 'list_timezones',
-                'description' => 'Mendapatkan daftar timezone yang tersedia. Gunakan ketika user ingin melihat daftar zona waktu yang bisa digunakan.',
-                'parameters' => [
-                    'type' => 'object',
-                    'properties' => [
-                        'limit' => [
-                            'type' => 'integer',
-                            'description' => 'Jumlah timezone yang akan dikembalikan. Default 10 untuk response yang mudah dibaca.',
-                            'default' => 10,
-                            'maximum' => 50
+                'type' => 'function',
+                'function' => [
+                    'name' => 'list_timezones',
+                    'description' => 'Mendapatkan daftar timezone yang tersedia. Gunakan ketika user ingin melihat daftar zona waktu yang bisa digunakan.',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'limit' => [
+                                'type' => 'integer',
+                                'description' => 'Jumlah timezone yang akan dikembalikan. Default 10 untuk response yang mudah dibaca.',
+                                'default' => 10,
+                                'maximum' => 50
+                            ]
                         ]
                     ]
                 ]

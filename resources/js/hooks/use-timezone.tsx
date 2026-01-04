@@ -119,7 +119,7 @@ export function useTimezone() {
 export function getBrowserTimezone(): string {
     try {
         return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Makassar';
-    } catch (error) {
+    } catch {
         return 'Asia/Makassar';
     }
 }
