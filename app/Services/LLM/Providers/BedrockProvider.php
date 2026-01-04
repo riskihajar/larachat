@@ -80,10 +80,11 @@ class BedrockProvider implements LLMProviderInterface
                 $toolRequest['timezone']
             );
 
-            // Add tool result to context for Claude
+            // Add tool result with natural response guidance
+            $toolInfo = $toolResult['formatted_response'];
             $messages[] = [
                 'role' => 'system',
-                'content' => "Hasil tool {$toolRequest['tool_name']}: {$toolResult['formatted_response']}"
+                'content' => "Hasil tool {$toolRequest['tool_name']}: {$toolInfo}\n\nSekarang berikan respons yang sangat natural dan ramah. Contoh: \"Sekarang jam X WITA, tanggal X bulan X. Ada yang bisa saya bantu?\" atau \"Tanggal X bulan X, jam X WITA. Senang membantu!\" - Gunakan bahasa Indonesia yang santai, hindari kata-kata teknis seperti 'berdasarkan tool' atau 'informasi yang diterima'."
             ];
 
             // Stream normal response with tool result in context
