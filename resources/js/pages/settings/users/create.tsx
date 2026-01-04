@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppSidebarLayout from '@/layouts/app/app-sidebar-layout';
 import type { Role } from '@/types';
@@ -55,80 +55,78 @@ export default function UsersCreate({ roles }: Props) {
                             <CardContent>
                                 <form onSubmit={handleSubmit} className="space-y-6">
                                     {/* Basic Information Section */}
-                                    <fieldset className="rounded-lg border p-4">
-                                        <legend className="text-muted-foreground px-2 text-sm font-medium">Basic Information</legend>
-                                        <div className="space-y-4">
-                                            <div className="grid grid-cols-[120px_1fr] items-center gap-4">
-                                                <Label htmlFor="name">Name</Label>
-                                                <div className="space-y-1">
-                                                    <Input
-                                                        id="name"
-                                                        value={data.name}
-                                                        onChange={(e) => setData('name', e.target.value)}
-                                                        placeholder="John Doe"
-                                                        required
-                                                    />
-                                                    {errors.name && <p className="text-destructive text-sm">{errors.name}</p>}
-                                                </div>
-                                            </div>
-                                            <div className="grid grid-cols-[120px_1fr] items-center gap-4">
-                                                <Label htmlFor="email">Email</Label>
-                                                <div className="space-y-1">
-                                                    <Input
-                                                        id="email"
-                                                        type="email"
-                                                        value={data.email}
-                                                        onChange={(e) => setData('email', e.target.value)}
-                                                        placeholder="john@example.com"
-                                                        required
-                                                    />
-                                                    {errors.email && <p className="text-destructive text-sm">{errors.email}</p>}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </fieldset>
+                                    <FieldSet className="rounded-lg border p-4">
+                                        <FieldLegend className="text-muted-foreground px-2 text-sm font-medium">Basic Information</FieldLegend>
+                                        <FieldGroup className="gap-4">
+                                            <Field data-invalid={!!errors.name}>
+                                                <FieldLabel htmlFor="name">Name</FieldLabel>
+                                                <Input
+                                                    id="name"
+                                                    value={data.name}
+                                                    onChange={(e) => setData('name', e.target.value)}
+                                                    placeholder="John Doe"
+                                                    aria-invalid={!!errors.name}
+                                                    required
+                                                />
+                                                {errors.name && <FieldError>{errors.name}</FieldError>}
+                                            </Field>
+                                            <Field data-invalid={!!errors.email}>
+                                                <FieldLabel htmlFor="email">Email</FieldLabel>
+                                                <Input
+                                                    id="email"
+                                                    type="email"
+                                                    value={data.email}
+                                                    onChange={(e) => setData('email', e.target.value)}
+                                                    placeholder="john@example.com"
+                                                    aria-invalid={!!errors.email}
+                                                    required
+                                                />
+                                                {errors.email && <FieldError>{errors.email}</FieldError>}
+                                            </Field>
+                                        </FieldGroup>
+                                    </FieldSet>
 
                                     {/* Security Section */}
-                                    <fieldset className="rounded-lg border p-4">
-                                        <legend className="text-muted-foreground px-2 text-sm font-medium">Security</legend>
-                                        <div className="space-y-4">
+                                    <FieldSet className="rounded-lg border p-4">
+                                        <FieldLegend className="text-muted-foreground px-2 text-sm font-medium">Security</FieldLegend>
+                                        <FieldGroup className="gap-4">
                                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="password">Password</Label>
+                                                <Field data-invalid={!!errors.password}>
+                                                    <FieldLabel htmlFor="password">Password</FieldLabel>
                                                     <Input
                                                         id="password"
                                                         type="password"
                                                         value={data.password}
                                                         onChange={(e) => setData('password', e.target.value)}
+                                                        aria-invalid={!!errors.password}
                                                         required
                                                     />
-                                                    {errors.password && <p className="text-destructive text-sm">{errors.password}</p>}
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="password_confirmation">Confirm Password</Label>
+                                                    {errors.password && <FieldError>{errors.password}</FieldError>}
+                                                </Field>
+                                                <Field data-invalid={!!errors.password_confirmation}>
+                                                    <FieldLabel htmlFor="password_confirmation">Confirm Password</FieldLabel>
                                                     <Input
                                                         id="password_confirmation"
                                                         type="password"
                                                         value={data.password_confirmation}
                                                         onChange={(e) => setData('password_confirmation', e.target.value)}
+                                                        aria-invalid={!!errors.password_confirmation}
                                                         required
                                                     />
-                                                    {errors.password_confirmation && (
-                                                        <p className="text-destructive text-sm">{errors.password_confirmation}</p>
-                                                    )}
-                                                </div>
+                                                    {errors.password_confirmation && <FieldError>{errors.password_confirmation}</FieldError>}
+                                                </Field>
                                             </div>
-                                        </div>
-                                    </fieldset>
+                                        </FieldGroup>
+                                    </FieldSet>
 
                                     {/* Role Assignment Section */}
-                                    <fieldset className="rounded-lg border p-4">
-                                        <legend className="text-muted-foreground px-2 text-sm font-medium">Role Assignment</legend>
-                                        <div className="grid grid-cols-[120px_1fr] items-center gap-4">
-                                            <Label htmlFor="role">Role</Label>
-                                            <div className="space-y-1">
+                                    <FieldSet className="rounded-lg border p-4">
+                                        <FieldLegend className="text-muted-foreground px-2 text-sm font-medium">Role Assignment</FieldLegend>
+                                        <FieldGroup className="gap-4">
+                                            <Field data-invalid={!!errors.role}>
+                                                <FieldLabel htmlFor="role">Role</FieldLabel>
                                                 <Select value={data.role} onValueChange={(value) => setData('role', value)} required>
-                                                    <SelectTrigger id="role">
+                                                    <SelectTrigger id="role" aria-invalid={!!errors.role}>
                                                         <SelectValue placeholder="Select a role" />
                                                     </SelectTrigger>
                                                     <SelectContent>
@@ -139,10 +137,11 @@ export default function UsersCreate({ roles }: Props) {
                                                         ))}
                                                     </SelectContent>
                                                 </Select>
-                                                {errors.role && <p className="text-destructive text-sm">{errors.role}</p>}
-                                            </div>
-                                        </div>
-                                    </fieldset>
+                                                <FieldDescription>Assign a role to define user permissions</FieldDescription>
+                                                {errors.role && <FieldError>{errors.role}</FieldError>}
+                                            </Field>
+                                        </FieldGroup>
+                                    </FieldSet>
 
                                     {/* Actions */}
                                     <div className="flex gap-3 pt-2">

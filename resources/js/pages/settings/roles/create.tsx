@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Field, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppSidebarLayout from '@/layouts/app/app-sidebar-layout';
@@ -90,27 +91,28 @@ export default function RolesCreate({ permissions }: Props) {
                             <CardContent>
                                 <form onSubmit={handleSubmit} className="space-y-6">
                                     {/* Role Name Section */}
-                                    <fieldset className="rounded-lg border p-4">
-                                        <legend className="text-muted-foreground px-2 text-sm font-medium">Role Details</legend>
-                                        <div className="grid grid-cols-[120px_1fr] items-center gap-4">
-                                            <Label htmlFor="name">Role Name</Label>
-                                            <div className="space-y-1">
+                                    <FieldSet className="rounded-lg border p-4">
+                                        <FieldLegend className="text-muted-foreground px-2 text-sm font-medium">Role Details</FieldLegend>
+                                        <FieldGroup className="gap-4">
+                                            <Field data-invalid={!!errors.name}>
+                                                <FieldLabel htmlFor="name">Role Name</FieldLabel>
                                                 <Input
                                                     id="name"
                                                     value={data.name}
                                                     onChange={(e) => setData('name', e.target.value)}
                                                     placeholder="e.g. manager, editor"
+                                                    aria-invalid={!!errors.name}
                                                     required
                                                 />
-                                                {errors.name && <p className="text-destructive text-sm">{errors.name}</p>}
-                                            </div>
-                                        </div>
-                                    </fieldset>
+                                                {errors.name && <FieldError>{errors.name}</FieldError>}
+                                            </Field>
+                                        </FieldGroup>
+                                    </FieldSet>
 
                                     {/* Permissions Section */}
-                                    <fieldset className="rounded-lg border p-4">
-                                        <legend className="text-muted-foreground px-2 text-sm font-medium">Permissions</legend>
-                                        {errors.permissions && <p className="text-destructive mb-3 text-sm">{errors.permissions}</p>}
+                                    <FieldSet className="rounded-lg border p-4">
+                                        <FieldLegend className="text-muted-foreground px-2 text-sm font-medium">Permissions</FieldLegend>
+                                        {errors.permissions && <FieldError className="mb-3">{errors.permissions}</FieldError>}
 
                                         <div className="space-y-4">
                                             {Object.entries(permissions).map(([group, groupPermissions]) => (
@@ -154,7 +156,7 @@ export default function RolesCreate({ permissions }: Props) {
                                                 </div>
                                             ))}
                                         </div>
-                                    </fieldset>
+                                    </FieldSet>
 
                                     {/* Actions */}
                                     <div className="flex gap-3 pt-2">
