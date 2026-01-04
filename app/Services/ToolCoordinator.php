@@ -4,16 +4,19 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use OpenAI\Laravel\Facades\OpenAI;
 use Illuminate\Support\Facades\Log;
+use App\Services\LLM\Contracts\LLMProviderInterface;
+use OpenAI\Laravel\Facades\OpenAI;
 
 class ToolCoordinator
 {
     private McpClient $mcpClient;
     private DateTimeFormatter $formatter;
+    private LLMProviderInterface $llmProvider;
 
-    public function __construct()
+    public function __construct(LLMProviderInterface $llmProvider)
     {
+        $this->llmProvider = $llmProvider;
         $this->mcpClient = new McpClient();
         $this->formatter = new DateTimeFormatter();
     }
@@ -139,22 +142,10 @@ class ToolCoordinator
             $toolDescriptions[] = "- {$tool['name']}: {$tool['description']}{$paramString}";
         }
 
-        // LLM reads tool descriptions and selects best match
-        $response = OpenAI::chat()->create([
-            'model' => 'gpt-4o-mini',
-            'messages' => [
-                [
-                    'role' => 'system',
-                    'content' => 'You are a pure AI tool selection assistant. Based ONLY on the user message and the available tools below, select the most appropriate tool. Do NOT use any external knowledge or assumptions. Only use the tool descriptions provided. Respond with only the exact tool name from the list.'
-                ],
-                [
-                    'role' => 'user',
-                    'content' => "Available tools:\n" . implode("\n", $toolDescriptions) . "\n\nUser message: \"{$message}\"\nUser timezone: {$userTimezone}\n\nSelect the best tool. Respond with ONLY the tool name."
-                ]
-            ],
-            'max_tokens' => 50,
-            'temperature' => 0
-        ]);
+        // LLM reads tool descriptions and selects best match using the injected provider
+        $prompt = "You are a pure AI tool selection assistant. Based ONLY on the user message and the available tools below, select the most appropriate tool. Do NOT use any external knowledge or assumptions. Only use the tool descriptions provided. Respond with only the exact tool name from the list.\n\nAvailable tools:\n" . implode("\n", $toolDescriptions) . "\n\nUser message: \"{$message}\"\nUser timezone: {$userTimezone}\n\nSelect the best tool. Respond with ONLY the tool name.";
+
+        $response = $this->callLLMForToolSelection($prompt);
 
         $selectedTool = trim(strtolower($response->choices[0]->message->content));
         
@@ -167,13 +158,57 @@ class ToolCoordinator
         Log::info('LLM pure tool selection', [
             'message' => $message,
             'selected_tool' => $selectedTool,
-            'available_tools' => count($availableTools)
+            'available_tools' => count($availableTools),
+            'provider_used' => $this->llmProvider->getName()
         ]);
         
         return [
             'tool_name' => $selectedTool,
             'reason' => 'Pure LLM selection from MCP tools'
         ];
+    }
+
+    /**
+     * Call the appropriate LLM provider for tool selection.
+     */
+    private function callLLMForToolSelection(string $prompt): object
+    {
+        $providerName = $this->llmProvider->getName();
+
+        if ($providerName === 'openai') {
+            // Use OpenAI API
+            return OpenAI::chat()->create([
+                'model' => 'gpt-4o-mini',
+                'messages' => [
+                    [
+                        'role' => 'user',
+                        'content' => $prompt
+                    ]
+                ],
+                'max_tokens' => 50,
+                'temperature' => 0
+            ]);
+        } elseif ($providerName === 'bedrock') {
+            // For Bedrock, we'd need to implement the AWS Bedrock API call
+            // For now, let's fallback to OpenAI if available, otherwise throw error
+            if (config('openai.api_key')) {
+                return OpenAI::chat()->create([
+                    'model' => 'gpt-4o-mini',
+                    'messages' => [
+                        [
+                            'role' => 'user',
+                            'content' => $prompt
+                        ]
+                    ],
+                    'max_tokens' => 50,
+                    'temperature' => 0
+                ]);
+            } else {
+                throw new \Exception('No LLM provider available for tool selection');
+            }
+        } else {
+            throw new \Exception("Unsupported LLM provider: {$providerName}");
+        }
     }
 
     /**

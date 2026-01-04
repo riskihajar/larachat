@@ -42,7 +42,7 @@ class BedrockProvider implements LLMProviderInterface
      */
     public function withTools(): self
     {
-        $this->toolCoordinator = new ToolCoordinator();
+        $this->toolCoordinator = new ToolCoordinator($this);
         return $this;
     }
 
