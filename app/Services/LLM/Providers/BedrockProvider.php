@@ -3,6 +3,7 @@
 namespace App\Services\LLM\Providers;
 
 use App\Services\LLM\Contracts\LLMProviderInterface;
+use App\Services\ToolCoordinator;
 use Aws\BedrockRuntime\BedrockRuntimeClient;
 use Aws\Credentials\Credentials;
 use Aws\Exception\AwsException;
@@ -19,6 +20,8 @@ class BedrockProvider implements LLMProviderInterface
 
     protected string $titleModel;
 
+    protected ?ToolCoordinator $toolCoordinator = null;
+
     public function __construct(?string $model = null)
     {
         $this->client = new BedrockRuntimeClient([
@@ -32,6 +35,66 @@ class BedrockProvider implements LLMProviderInterface
 
         $this->model = $model ?? config('llm.bedrock.model');
         $this->titleModel = config('llm.bedrock.title_model', $this->model);
+    }
+
+    /**
+     * Enable tool calling support.
+     */
+    public function withTools(): self
+    {
+        $this->toolCoordinator = new ToolCoordinator();
+        return $this;
+    }
+
+    /**
+     * Stream response with function calling support for Bedrock/Claude.
+     * Simplified approach similar to OpenAI.
+     */
+    public function streamWithTools(array $messages, array $userContext = []): \Generator
+    {
+        // Check if tools are enabled
+        if (!$this->toolCoordinator) {
+            yield from $this->stream($messages);
+            return;
+        }
+
+        try {
+            // Get the latest user message safely
+            $latestMessage = $messages[array_key_last($messages)] ?? ['content' => ''];
+            $userMessage = $latestMessage['content'] ?? '';
+            $userTimezone = $userContext['timezone'] ?? 'Asia/Makassar';
+
+            // Check if message needs tool calling
+            $toolRequest = $this->toolCoordinator->processMessage($userMessage, $userTimezone);
+
+            if (!$toolRequest['needs_tool']) {
+                // Normal chat without tools
+                yield from $this->stream($messages);
+                return;
+            }
+
+            // Execute tool first and get result (similar to OpenAI approach)
+            $toolResult = $this->toolCoordinator->executeTool(
+                $toolRequest['tool_name'],
+                $toolRequest['arguments'],
+                $toolRequest['timezone']
+            );
+
+            // Add tool result to context for Claude
+            $messages[] = [
+                'role' => 'system',
+                'content' => "Hasil tool {$toolRequest['tool_name']}: {$toolResult['formatted_response']}"
+            ];
+
+            // Stream normal response with tool result in context
+            yield from $this->stream($messages);
+
+        } catch (\Exception $e) {
+            Log::error('Bedrock streaming with tools error', [
+                'message' => $e->getMessage(),
+            ]);
+            yield 'Error: Unable to generate response with tools.';
+        }
     }
 
     public function stream(array $messages): \Generator
@@ -285,4 +348,52 @@ class BedrockProvider implements LLMProviderInterface
 
         return $formatted;
     }
+
+    /**
+     * Convert OpenAI function schemas to Claude tool format.
+     */
+    protected function convertToClaudeTools(array $openAIFunctionSchemas): array
+    {
+        $claudeTools = [];
+
+        foreach ($openAIFunctionSchemas as $schema) {
+            $function = $schema['function'];
+            
+            // Convert parameters to Claude format
+            $claudeInputSchema = [
+                'type' => 'object',
+                'properties' => [],
+                'required' => []
+            ];
+
+            if (isset($function['parameters']['properties'])) {
+                foreach ($function['parameters']['properties'] as $name => $prop) {
+                    $claudeInputSchema['properties'][$name] = [
+                        'type' => $prop['type'] ?? 'string',
+                        'description' => $prop['description'] ?? '',
+                    ];
+
+                    if (isset($prop['default'])) {
+                        $claudeInputSchema['properties'][$name]['default'] = $prop['default'];
+                    }
+                }
+            }
+
+            if (isset($function['parameters']['required'])) {
+                $claudeInputSchema['required'] = $function['parameters']['required'];
+            }
+
+            $claudeTools[] = [
+                'name' => $function['name'],
+                'description' => $function['description'] ?? '',
+                'input_schema' => $claudeInputSchema
+            ];
+        }
+
+        return $claudeTools;
+    }
+
+
+
+
 }

@@ -13,6 +13,15 @@ interface LLMProviderInterface
     public function stream(array $messages): \Generator;
 
     /**
+     * Stream a chat response with tool calling support.
+     *
+     * @param  array<int, array{role: string, content: string}>  $messages
+     * @param  array<string, mixed>  $userContext
+     * @return \Generator<string>
+     */
+    public function streamWithTools(array $messages, array $userContext = []): \Generator;
+
+    /**
      * Generate a chat title from messages.
      */
     public function generateTitle(string $firstMessage): string;
@@ -26,4 +35,11 @@ interface LLMProviderInterface
      * Get the model being used.
      */
     public function getModel(): string;
+
+    /**
+     * Enable tool calling support (optional method).
+     * 
+     * @return static
+     */
+    public function withTools(): self;
 }

@@ -158,8 +158,11 @@ class ChatController extends Controller
 
         $provider = LLMProviderFactory::make($providerName, $modelName);
 
-        // Enable tools for OpenAI provider
+        // Enable tools for OpenAI and Bedrock providers
         if ($providerName === 'openai' && $provider instanceof \App\Services\LLM\Providers\OpenAIProvider) {
+            $provider = $provider->withTools();
+        }
+        if ($providerName === 'bedrock' && $provider instanceof \App\Services\LLM\Providers\BedrockProvider) {
             $provider = $provider->withTools();
         }
 
@@ -199,9 +202,10 @@ class ChatController extends Controller
             try {
                 // Check if provider supports tool calling
                 $openaiProvider = $provider instanceof \App\Services\LLM\Providers\OpenAIProvider ? $provider : null;
+                $bedrockProvider = $provider instanceof \App\Services\LLM\Providers\BedrockProvider ? $provider : null;
 
-                if ($openaiProvider && method_exists($openaiProvider, 'streamWithTools')) {
-                    foreach ($openaiProvider->streamWithTools($messages, $userContext) as $chunk) {
+                if (($openaiProvider || $bedrockProvider) && method_exists($provider, 'streamWithTools')) {
+                    foreach ($provider->streamWithTools($messages, $userContext) as $chunk) {
                         $fullResponse .= $chunk;
 
                         // Send chunk immediately
