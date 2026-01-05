@@ -1,4 +1,3 @@
-import StreamingIndicator from '@/components/streaming-indicator';
 import { cn } from '@/lib/utils';
 import { Brain, ChevronDown, ChevronRight, Wrench } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -100,7 +99,6 @@ function ToolCallsDisplay({ tool_calls }: { tool_calls?: Message['tool_calls'] }
 }
 
 export default function Conversation({ messages, streamingData, isStreaming, streamId }: ConversationProps) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const scrollRef = useRef<HTMLDivElement>(null);
 
     // Auto-scroll to bottom when messages change or during streaming
@@ -149,15 +147,9 @@ export default function Conversation({ messages, streamingData, isStreaming, str
                                     message.type === 'prompt' ? 'bg-primary text-primary-foreground' : 'bg-muted',
                                 )}
                             >
-                                {message.type === 'prompt' && (index === messages.length - 1 || index === messages.length - 2) && streamId && (
-                                    <StreamingIndicator id={streamId} className="absolute top-3 -left-8" />
-                                )}
-                                {/* Display thinking/reasoning if available */}
                                 <ReasoningDisplay reasoning={message.reasoning} />
-                                {/* Display tool calls if available */}
                                 <ToolCallsDisplay tool_calls={message.tool_calls} />
-                                {/* Main message content */}
-                                <div className="prose prose-sm dark:prose-invert max-w-none">
+                                <div className={cn('prose prose-sm max-w-none', message.type === 'prompt' ? 'prose-invert' : 'dark:prose-invert')}>
                                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
                                 </div>
                             </div>
