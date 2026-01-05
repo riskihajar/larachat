@@ -68,43 +68,10 @@ class ToolCoordinator
 
     /**
      * Process a user message and determine if tool calling is needed.
-     * Let LLM handle all classification and tool selection naturally.
+     * LLM handles classification and tool selection - keywords as fallback.
      */
     public function processMessage(string $message, string $userTimezone = 'Asia/Makassar'): array
     {
-        // First, check if this is clearly a datetime-related query
-        // Only proceed to LLM tool selection if message is datetime-related
-        $datetimeKeywords = [
-            // Indonesian
-            'jam berapa', 'tanggal berapa', 'hari apa', 'sekarang jam', 'sekarang tanggal',
-            'waktu di', 'zona waktu', 'konversi waktu', 'ubah waktu', 'timezone di',
-            'jam di', 'tanggal di', 'hari di', 'wita', 'wit', 'utc',
-            // English
-            'what time', 'what date', 'current time', 'time in', 'date in',
-            'timezone', 'convert time', 'time conversion', 'time now',
-            // Generic keywords
-            'jam', 'waktu', 'tanggal', 'hari', 'sekarang', 'time', 'date'
-        ];
-
-        $isDatetimeRelated = false;
-        $lowerMessage = strtolower($message);
-        foreach ($datetimeKeywords as $keyword) {
-            if (str_contains($lowerMessage, $keyword)) {
-                $isDatetimeRelated = true;
-                break;
-            }
-        }
-
-        // If message is NOT datetime-related, skip tool selection entirely
-        if (!$isDatetimeRelated) {
-            return [
-                'needs_tool' => false,
-                'message' => $message,
-                'reason' => 'Message does not appear to be datetime-related'
-            ];
-        }
-
-        // Now let LLM handle the specific tool selection and parameter extraction
         try {
             $toolSelection = $this->llmSelectTool($message, $userTimezone);
             $toolName = $toolSelection['tool_name'];
@@ -119,18 +86,84 @@ class ToolCoordinator
                 'selection_reason' => $toolSelection['reason'] ?? null
             ];
         } catch (\Exception $e) {
-            Log::error('LLM tool selection failed', [
+            Log::warning('LLM tool selection failed, falling back to keyword detection', [
                 'message' => $e->getMessage(),
                 'query' => $message
             ]);
 
-            // If LLM fails, return no tool needed - let normal chat continue
+            if ($this->isDatetimeRelated($message)) {
+                return $this->fallbackByKeywords($message, $userTimezone);
+            }
+
             return [
                 'needs_tool' => false,
                 'message' => $message,
-                'error' => 'Tool selection failed: ' . $e->getMessage()
+                'reason' => 'LLM tool selection failed and message is not datetime-related'
             ];
         }
+    }
+
+    /**
+     * Check if message is datetime-related using keywords (fallback method).
+     */
+    private function isDatetimeRelated(string $message): bool
+    {
+        $datetimeKeywords = [
+            'jam berapa', 'tanggal berapa', 'hari apa', 'sekarang jam', 'sekarang tanggal',
+            'waktu di', 'zona waktu', 'konversi waktu', 'ubah waktu', 'timezone di',
+            'jam di', 'tanggal di', 'hari di', 'wita', 'wit', 'utc',
+            'what time', 'what date', 'current time', 'time in', 'date in',
+            'timezone', 'convert time', 'time conversion', 'time now',
+            'jam', 'waktu', 'tanggal', 'hari', 'sekarang', 'time', 'date'
+        ];
+
+        $lowerMessage = strtolower($message);
+        foreach ($datetimeKeywords as $keyword) {
+            if (str_contains($lowerMessage, $keyword)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Fallback tool selection using keyword detection.
+     */
+    private function fallbackByKeywords(string $message, string $userTimezone): array
+    {
+        $lowerMessage = strtolower($message);
+
+        if (str_contains($lowerMessage, 'konversi') || str_contains($lowerMessage, 'ubah') || str_contains($lowerMessage, 'convert')) {
+            return [
+                'needs_tool' => true,
+                'tool_name' => 'convert-timezone-tool',
+                'arguments' => ['timezone' => $userTimezone],
+                'timezone' => $userTimezone,
+                'message' => $message,
+                'selection_reason' => 'Fallback: keyword detection for timezone conversion'
+            ];
+        }
+
+        if (str_contains($lowerMessage, 'zona waktu') || str_contains($lowerMessage, 'timezone')) {
+            return [
+                'needs_tool' => true,
+                'tool_name' => 'get-timezone-info-tool',
+                'arguments' => ['timezone' => $userTimezone],
+                'timezone' => $userTimezone,
+                'message' => $message,
+                'selection_reason' => 'Fallback: keyword detection for timezone info'
+            ];
+        }
+
+        return [
+            'needs_tool' => true,
+            'tool_name' => 'get-current-date-time-tool',
+            'arguments' => ['timezone' => $userTimezone],
+            'timezone' => $userTimezone,
+            'message' => $message,
+            'selection_reason' => 'Fallback: keyword detection for datetime'
+        ];
     }
 
     /**
@@ -139,16 +172,10 @@ class ToolCoordinator
      */
     private function llmSelectTool(string $message, string $userTimezone): array
     {
-        // Get tools directly from MCP server
         $availableTools = $this->mcpClient->getAvailableTools();
-        
+
         if (empty($availableTools)) {
             throw new \Exception('No MCP tools available');
-        }
-
-        // If OpenAI is not available, we cannot proceed (no fallback)
-        if (!$this->isOpenAIAvailable()) {
-            throw new \Exception('OpenAI not available for tool selection');
         }
 
         // Prepare tool descriptions for LLM to read directly from MCP
@@ -157,11 +184,11 @@ class ToolCoordinator
             $inputSchema = $tool['inputSchema'] ?? [];
             $properties = $inputSchema['properties'] ?? [];
             $params = [];
-            
+
             foreach ($properties as $paramName => $paramInfo) {
                 $params[] = "- {$paramName}: {$paramInfo['description']}";
             }
-            
+
             $paramString = !empty($params) ? " (Parameters: " . implode(", ", $params) . ")" : "";
             $toolDescriptions[] = "- {$tool['name']}: {$tool['description']}{$paramString}";
         }
@@ -172,20 +199,20 @@ class ToolCoordinator
         $response = $this->callLLMForToolSelection($prompt);
 
         $selectedTool = trim(strtolower($response->choices[0]->message->content));
-        
+
         // Validate the selected tool exists
         $validToolNames = array_column($availableTools, 'name');
         if (!in_array($selectedTool, $validToolNames)) {
             throw new \Exception("LLM selected invalid tool: {$selectedTool}");
         }
-        
+
         Log::info('LLM pure tool selection', [
             'message' => $message,
             'selected_tool' => $selectedTool,
             'available_tools' => count($availableTools),
             'provider_used' => $this->llmProvider->getName()
         ]);
-        
+
         return [
             'tool_name' => $selectedTool,
             'reason' => 'Pure LLM selection from MCP tools'
@@ -198,11 +225,11 @@ class ToolCoordinator
     private function callLLMForToolSelection(string $prompt): object
     {
         $providerName = $this->llmProvider->getName();
+        $model = $this->llmProvider->getModel();
 
         if ($providerName === 'openai') {
-            // Use OpenAI API
             return OpenAI::chat()->create([
-                'model' => 'gpt-4o-mini',
+                'model' => $model,
                 'messages' => [
                     [
                         'role' => 'user',
@@ -213,8 +240,7 @@ class ToolCoordinator
                 'temperature' => 0
             ]);
         } elseif ($providerName === 'bedrock') {
-            // Use Bedrock API for tool selection
-            return $this->callBedrockForToolSelection($prompt);
+            return $this->callBedrockForToolSelection($prompt, $model);
         } else {
             throw new \Exception("Unsupported LLM provider: {$providerName}");
         }
@@ -223,10 +249,9 @@ class ToolCoordinator
     /**
      * Call Bedrock API for tool selection.
      */
-    private function callBedrockForToolSelection(string $prompt): object
+    private function callBedrockForToolSelection(string $prompt, string $model): object
     {
         $region = config('llm.bedrock.region');
-        $model = 'us.anthropic.claude-3-5-haiku-20241022-v1:0';
         $host = "bedrock-runtime.{$region}.amazonaws.com";
         $url = "https://{$host}/model/{$model}/invoke";
 
@@ -272,16 +297,6 @@ class ToolCoordinator
                 ]
             ]
         ];
-    }
-
-    /**
-     * Check if OpenAI API is available.
-     */
-    private function isOpenAIAvailable(): bool
-    {
-        return !app()->environment('testing') && 
-               config('openai.api_key') && 
-               !empty(config('openai.api_key'));
     }
 
     /**
