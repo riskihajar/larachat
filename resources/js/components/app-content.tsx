@@ -16,7 +16,7 @@ export function AppContent({ variant = 'header', children, className, ...props }
     }
 
     return (
-        <main className={'mx-auto flex h-full w-full max-w-7xl flex-1 flex-col gap-4 rounded-xl overflow-hidden ' + (className || '')} {...props}>
+        <main className={'mx-auto flex h-full w-full max-w-7xl flex-1 flex-col gap-4 overflow-hidden rounded-xl ' + (className || '')} {...props}>
             {children}
         </main>
     );

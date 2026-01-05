@@ -3,11 +3,11 @@ import { Head, useForm } from '@inertiajs/react';
 import { LoaderCircle } from 'lucide-react';
 import { FormEventHandler } from 'react';
 
+import { destroy as logoutDestroy } from '@/actions/App/Http/Controllers/Auth/AuthenticatedSessionController';
+import { store as verificationSendStore } from '@/actions/App/Http/Controllers/Auth/EmailVerificationNotificationController';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import AuthLayout from '@/layouts/auth-layout';
-import { store as verificationSendStore } from '@/actions/App/Http/Controllers/Auth/EmailVerificationNotificationController';
-import { destroy as logoutDestroy } from '@/actions/App/Http/Controllers/Auth/AuthenticatedSessionController';
 
 export default function VerifyEmail({ status }: { status?: string }) {
     const { post, processing } = useForm({});

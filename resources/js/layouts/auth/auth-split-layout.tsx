@@ -1,8 +1,8 @@
+import { index as homeIndex } from '@/actions/App/Http/Controllers/ChatController';
 import AppLogoIcon from '@/components/app-logo-icon';
 import { type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import { type PropsWithChildren } from 'react';
-import { index as homeIndex } from '@/actions/App/Http/Controllers/ChatController';
 
 interface AuthLayoutProps {
     title?: string;

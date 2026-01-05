@@ -1,9 +1,9 @@
+import { create as loginCreate } from '@/actions/App/Http/Controllers/Auth/AuthenticatedSessionController';
+import { destroy as chatDestroy, show as chatShow, store as chatStore, update as chatUpdate } from '@/actions/App/Http/Controllers/ChatController';
 import { cn } from '@/lib/utils';
 import { Link, router, useForm } from '@inertiajs/react';
 import { Check, MessageSquare, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { store as chatStore, show as chatShow, update as chatUpdate, destroy as chatDestroy } from '@/actions/App/Http/Controllers/ChatController';
-import { create as loginCreate } from '@/actions/App/Http/Controllers/Auth/AuthenticatedSessionController';
 import {
     AlertDialog,
     AlertDialogAction,

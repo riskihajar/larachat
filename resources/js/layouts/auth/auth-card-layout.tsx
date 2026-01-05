@@ -1,8 +1,8 @@
+import { index as homeIndex } from '@/actions/App/Http/Controllers/ChatController';
 import AppLogoIcon from '@/components/app-logo-icon';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Link } from '@inertiajs/react';
 import { type PropsWithChildren } from 'react';
-import { index as homeIndex } from '@/actions/App/Http/Controllers/ChatController';
 
 export default function AuthCardLayout({
     children,

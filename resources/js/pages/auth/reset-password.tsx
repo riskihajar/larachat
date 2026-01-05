@@ -2,12 +2,12 @@ import { Head, useForm } from '@inertiajs/react';
 import { LoaderCircle } from 'lucide-react';
 import { FormEventHandler } from 'react';
 
+import { store as passwordStore } from '@/actions/App/Http/Controllers/Auth/NewPasswordController';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AuthLayout from '@/layouts/auth-layout';
-import { store as passwordStore } from '@/actions/App/Http/Controllers/Auth/NewPasswordController';
 
 interface ResetPasswordProps {
     token: string;
