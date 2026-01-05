@@ -72,7 +72,39 @@ class ToolCoordinator
      */
     public function processMessage(string $message, string $userTimezone = 'Asia/Makassar'): array
     {
-        // Let LLM handle everything - classification, tool selection, and parameter extraction
+        // First, check if this is clearly a datetime-related query
+        // Only proceed to LLM tool selection if message is datetime-related
+        $datetimeKeywords = [
+            // Indonesian
+            'jam berapa', 'tanggal berapa', 'hari apa', 'sekarang jam', 'sekarang tanggal',
+            'waktu di', 'zona waktu', 'konversi waktu', 'ubah waktu', 'timezone di',
+            'jam di', 'tanggal di', 'hari di', 'wita', 'wit', 'utc',
+            // English
+            'what time', 'what date', 'current time', 'time in', 'date in',
+            'timezone', 'convert time', 'time conversion', 'time now',
+            // Generic keywords
+            'jam', 'waktu', 'tanggal', 'hari', 'sekarang', 'time', 'date'
+        ];
+
+        $isDatetimeRelated = false;
+        $lowerMessage = strtolower($message);
+        foreach ($datetimeKeywords as $keyword) {
+            if (str_contains($lowerMessage, $keyword)) {
+                $isDatetimeRelated = true;
+                break;
+            }
+        }
+
+        // If message is NOT datetime-related, skip tool selection entirely
+        if (!$isDatetimeRelated) {
+            return [
+                'needs_tool' => false,
+                'message' => $message,
+                'reason' => 'Message does not appear to be datetime-related'
+            ];
+        }
+
+        // Now let LLM handle the specific tool selection and parameter extraction
         try {
             $toolSelection = $this->llmSelectTool($message, $userTimezone);
             $toolName = $toolSelection['tool_name'];
